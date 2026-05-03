@@ -163,6 +163,25 @@ tr.beklem td { color: var(--metin); }
 .badge-kirmizi { background: #fee2e2; color: var(--kirmizi); }
 .badge-turuncu { background: #fef3c7; color: var(--turuncu); }
 #mob-menu-btn { display: none; position: fixed; top: 12px; left: 12px; z-index: 200; background: var(--sidebar); color: #fff; border: none; border-radius: 8px; padding: 8px 12px; font-size: 20px; cursor: pointer; }
+.menu-grup-baslik {
+  padding: 10px 16px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #475569;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+.menu-grup-baslik.tiklanabilir {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+}
+.menu-grup-baslik.tiklanabilir:hover { color: #94a3b8; }
+.menu-grup-icerik { overflow: hidden; transition: max-height .25s ease; }
+.menu-grup-icerik.kapali { max-height: 0 !important; }
 </style>
 </head>
 <body>
@@ -224,8 +243,8 @@ tr.beklem td { color: var(--metin); }
     </div>
     <div class="logo" style="font-size:16px;padding-top:4px">Labin Yapı Lab</div>
     <div class="logo-sub">Yönetim Sistemi</div>
-    <button onclick="aramaAc()" style="margin:4px 8px;padding:9px 12px;background:rgba(255,255,255,.1);border:none;border-radius:8px;color:#cbd5e1;font-size:13px;cursor:pointer;text-align:left;width:calc(100% - 16px)">🔍  Ara...</button>
-    <nav id="nav"></nav>
+    <button onclick="aramaAc()" style="margin:4px 8px 8px;padding:9px 12px;background:rgba(255,255,255,.1);border:none;border-radius:8px;color:#cbd5e1;font-size:13px;cursor:pointer;text-align:left;width:calc(100% - 16px)">🔍  Ara...</button>
+    <nav id="nav" style="flex:1;overflow-y:auto"></nav>
     <div class="sidebar-alt">
       <div id="kullanici-bilgi" class="kullanici-bilgi"></div>
     <div id="son-guncelleme-lbl" style="padding:0 12px 6px;font-size:10px;color:#475569;"></div>
@@ -306,6 +325,22 @@ function toggleMenu() {
   const s = document.getElementById('sidebar');
   s.classList.toggle('acik');
 }
+
+function menuGrupToggle(id) {
+  const el = document.getElementById(id);
+  const ok = document.getElementById(id + '-ok');
+  if (!el) return;
+  const kapali = el.classList.contains('kapali');
+  if (kapali) {
+    el.classList.remove('kapali');
+    el.style.maxHeight = '300px';
+    if (ok) ok.style.transform = 'rotate(0deg)';
+  } else {
+    el.classList.add('kapali');
+    el.style.maxHeight = '0';
+    if (ok) ok.style.transform = 'rotate(-90deg)';
+  }
+}
 // Sayfa degisince mobilde menüyü kapat
 const _eskiSayfaGit = sayfaGit;
 // Icerik tiklaninca menüyü kapat (mobilde)
@@ -352,28 +387,62 @@ function baslatUygulama() {
   // Her 60 saniyede bir guncelle
   setInterval(sonGuncellemeGoster, 60000);
 
-  const menuler = [
-    ['ozet','📊 Genel Özet'],
-    ['aylik','📈 Aylık Durum'],
-    ['beton_prog','🏗 Beton Programı'],
-    ['musteriler','🏢 Müşteriler'],
-    ['taze_beton','🧪 Taze Beton'],
-    ['celik','⚙️ Çelik Numunesi'],
-    ['karot','🪨 Karot Numunesi'],
-    ['gelir','💰 Gelir / Tahsilat'],
-    ['cek_senet','📋 Çek / Senet'],
-    ['gider','📤 Giderler'],
-    ['personeller','👥 Personeller'],
-    ['kdv','📑 KDV Beyannamesi'],
-    ['musteri_detay','👤 Müşteri Detay'],
-    ['raporlar','📄 Raporlar'],
+  const gruplar = [
+    {
+      baslik: '📊 Genel', id: 'grup-genel', acik: true,
+      menuler: [
+        ['ozet','📊 Genel Özet'],
+        ['aylik','📈 Aylık Durum'],
+        ['beton_prog','🏗 Beton Programı'],
+      ]
+    },
+    {
+      baslik: '🏢 Müşteri', id: 'grup-musteri', acik: true,
+      menuler: [
+        ['musteriler','👥 Müşteriler'],
+        ['musteri_detay','👤 Müşteri Detay'],
+      ]
+    },
+    {
+      baslik: '🧪 Numune', id: 'grup-numune', acik: true,
+      menuler: [
+        ['taze_beton','🔵 Taze Beton'],
+        ['celik','⚙️ Çelik'],
+        ['karot','🪨 Karot'],
+      ]
+    },
+    {
+      baslik: '💰 Finansal', id: 'grup-finans', acik: true,
+      menuler: [
+        ['gelir','💰 Gelir / Tahsilat'],
+        ['cek_senet','📋 Çek / Senet'],
+        ['gider','📤 Giderler'],
+        ['kdv','📑 KDV Beyannamesi'],
+      ]
+    },
+    {
+      baslik: '⚙️ Sistem', id: 'grup-sistem', acik: false,
+      menuler: [
+        ['personeller','👷 Personeller'],
+        ['raporlar','📄 Raporlar'],
+        ['cop_kutusu','🗑️ Çöp Kutusu'],
+        ...(isAdmin() ? [['kullanicilar','🔐 Kullanıcılar']] : []),
+      ]
+    },
   ];
-  if (isAdmin()) menuler.push(['kullanicilar','🔐 Kullanıcılar']);
 
   const nav = document.getElementById('nav');
-  nav.innerHTML = menuler.map(([id,label]) =>
-    `<a href="#" onclick="sayfaGit('${id}');return false" id="menu-${id}">${label}</a>`
-  ).join('');
+  nav.innerHTML = gruplar.map(g => `
+    <div class="menu-grup-baslik tiklanabilir" onclick="menuGrupToggle('${g.id}')">
+      <span>${g.baslik}</span>
+      <span id="${g.id}-ok" style="font-size:10px;transition:transform .2s;display:inline-block;transform:${g.acik?'rotate(0deg)':'rotate(-90deg)'}">▼</span>
+    </div>
+    <div class="menu-grup-icerik ${g.acik?'':'kapali'}" id="${g.id}" style="max-height:${g.acik?'300px':'0'}">
+      ${g.menuler.map(([id,label]) =>
+        `<a href="#" onclick="sayfaGit('${id}');return false" id="menu-${id}">${label}</a>`
+      ).join('')}
+    </div>
+  `).join('');
 
   sayfaGit('ozet');
 }
@@ -767,6 +836,20 @@ const sayfalar = {
         <tbody id="aylik-tablo"></tbody></table>
       </div>`;
     await aylikYenile();
+  },
+
+  // ÇÖP KUTUSU
+  cop_kutusu: async () => {
+    const ic = document.getElementById('sayfa-icerik');
+    ic.innerHTML = `
+      <div class="sayfa-baslik">🗑️ Çöp Kutusu</div>
+      <p style="color:var(--ikincil);margin-bottom:16px;font-size:13px">Silinen kayıtlar burada görünür. Geri yüklemek için seçin.</p>
+      <div class="kart" style="margin-bottom:12px">
+        <p style="color:var(--ikincil);font-size:13px;text-align:center;padding:20px">
+          ℹ️ Çöp kutusu özelliği web versiyonunda silme işlemleri için henüz aktif değil.<br>
+          Yanlışlıkla silinen veriler için veritabanı yedeğinizden geri yükleme yapılabilir.
+        </p>
+      </div>`;
   },
 
   // KDV BEYANNAMESİ
