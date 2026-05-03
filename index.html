@@ -738,7 +738,6 @@ const sayfalar = {
   },
 
   // AYLIK
-  aylik: async () => {  // AYLIK
   aylik: async () => {
     const yil = new Date().getFullYear();
     const ic = document.getElementById('sayfa-icerik');
@@ -1600,19 +1599,14 @@ function musteriExcel() {
   csv += `Tarih: ${new Date().toLocaleDateString('tr-TR')}
 
 `;
-  csv += 'NUMUNELER
-';
-  csv += 'Tarih,Tür,YİBF,Blok,Kat,Adet,KDVsiz,KDVli,Durum
-';
+  csv += 'NUMUNELER\n';
+  csv += 'Tarih,Tür,YİBF,Blok,Kat,Adet,KDVsiz,KDVli,Durum\n';
   nums.forEach(n => {
     csv += `${n.tarih},${n.tur},${n.yibf||''},${n.blok||''},${n.kat||''},${n.adet},${n.toplam||0},${n.toplam_kdvli||0},${n.durum}
 `;
   });
-  csv += '
-TAHSİLATLAR
-';
-  csv += 'Tarih,Açıklama,Ödeme Türü,Tutar
-';
+  csv += '\nTAHSİLATLAR\n';
+  csv += 'Tarih,Açıklama,Ödeme Türü,Tutar\n';
   gels.forEach(g => { csv += `${g.tarih},${g.aciklama},${g.odeme_turu||''},${g.tutar}
 `; });
 
@@ -1733,8 +1727,7 @@ async function aylikRaporExcel() {
   csv += `LABİN YAPI LABORATUVARI - AYLIK RAPOR ${yil}
 
 `;
-  csv += 'Ay,Tahsilat,Gider,Net Kâr
-';
+  csv += 'Ay,Tahsilat,Gider,Net Kâr\n';
   data.forEach(d => { csv += `${d.etiket},${d.gelir},${d.gider},${d.net}
 `; });
   csv += `TOPLAM,${data.reduce((s,d)=>s+d.gelir,0)},${data.reduce((s,d)=>s+d.gider,0)},${data.reduce((s,d)=>s+d.net,0)}
