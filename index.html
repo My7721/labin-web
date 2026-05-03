@@ -1658,10 +1658,14 @@ function musteriPDF() {
       <div class="kart"><div class="lbl">Numune Sayısı</div><div class="val" style="color:#6c2bd9">${nums.length}</div></div>
     </div>
     <h2>NUMUNELER</h2>
-    <table><thead><tr><th>Tarih</th><th>Tür</th><th>YİBF</th><th>Blok</th><th>Kat</th><th>Adet</th><th>KDVsiz</th><th>KDVli</th><th>Durum</th></tr></thead>
+    <table><thead><tr><th>Tarih</th><th>Tür</th><th>YİBF</th><th>İş Adı</th><th>Blok/Kat</th><th>Adet</th><th>Birim Fiyat</th><th>Toplam (KDV Dahil)</th><th>Durum</th></tr></thead>
     <tbody>${nums.map(n=>`<tr class="${n.durum==='Tahsil Edildi'?'tahsil':''}">
-      <td>${n.tarih}</td><td>${n.tur}</td><td>${n.yibf||''}</td><td>${n.blok||''}</td><td>${n.kat||''}</td>
-      <td>${n.adet}</td><td>${para(n.toplam)}</td><td>${para(n.toplam_kdvli)}</td><td>${n.durum}</td>
+      <td>${n.tarih}</td><td>${n.tur}</td><td>${n.yibf||''}</td>
+      <td>${n.is_adi||''}</td>
+      <td>${n.blok||''} ${n.kat||''}</td><td>${n.adet}</td>
+      <td>${para(n.birim_fiyat)}</td>
+      <td style="font-weight:700">${para(n.toplam_kdvli)}</td>
+      <td>${n.durum}</td>
     </tr>`).join('')}</tbody></table>
     <h2>TAHSİLATLAR</h2>
     <table><thead><tr><th>Tarih</th><th>Açıklama</th><th>Ödeme Türü</th><th>Tutar</th></tr></thead>
