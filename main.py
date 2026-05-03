@@ -99,6 +99,7 @@ def init_db():
         toplam_kdvli REAL DEFAULT 0,
         durum TEXT DEFAULT 'Beklemede',
         not_ TEXT,
+    is_adi TEXT DEFAULT ''
         olusturma TEXT DEFAULT (datetime('now'))
     )""")
 
@@ -165,6 +166,7 @@ def init_db():
         m3 TEXT,
         beton_sinifi TEXT,
         not_ TEXT,
+    is_adi TEXT DEFAULT ''
         olusturma TEXT DEFAULT (datetime('now'))
     )""")
 
@@ -254,6 +256,7 @@ class NumuneModel(BaseModel):
     toplam_kdvli: float = 0
     durum: Optional[str] = "Beklemede"
     not_: Optional[str] = ""
+    is_adi: Optional[str] = ""
 
 class GelirModel(BaseModel):
     tarih: str
@@ -300,6 +303,7 @@ class BetonProgramModel(BaseModel):
     m3: Optional[str] = ""
     beton_sinifi: Optional[str] = ""
     not_: Optional[str] = ""
+    is_adi: Optional[str] = ""
 
 class DurumModel(BaseModel):
     durum: str
@@ -460,12 +464,12 @@ def numune_ekle(data: NumuneModel, token=Depends(admin_kontrol)):
     conn = get_db()
     cur = conn.execute("""
         INSERT INTO numuneler (tur,musteri_id,musteri_adi,tarih,yibf,belediye,blok,kat,
-        m3,beton_sinifi,caplar,adet,birim_fiyat,kdv_oran,kdv_tutar,toplam,toplam_kdvli,durum,not_)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        m3,beton_sinifi,caplar,adet,birim_fiyat,kdv_oran,kdv_tutar,toplam,toplam_kdvli,durum,not_,is_adi)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (data.tur,data.musteri_id,data.musteri_adi,data.tarih,data.yibf,data.belediye,
          data.blok,data.kat,data.m3,data.beton_sinifi,data.caplar,data.adet,
          data.birim_fiyat,data.kdv_oran,data.kdv_tutar,data.toplam,data.toplam_kdvli,
-         data.durum,data.not_)
+         data.durum,data.not_,data.is_adi)
     )
     son_guncelleme_guncelle(conn)
     conn.commit(); conn.close()
