@@ -6,10 +6,19 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, date
-import sqlite3
 import hashlib
 import jwt
 import os
+
+# PostgreSQL veya SQLite
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+USE_PG = DATABASE_URL.startswith("postgresql") or DATABASE_URL.startswith("postgres")
+
+if USE_PG:
+    import psycopg2
+    import psycopg2.extras
+else:
+    import sqlite3
 
 app = FastAPI(title="Labin Yapi Lab API", version="1.0.0")
 
@@ -23,191 +32,209 @@ app.add_middleware(
 )
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "labin_gizli_anahtar_2024")
-# Railway Volume'u varsa /data klasorunu kullan, yoksa yerel
-_data_dir = "/data" if os.path.isdir("/data") else "."
-DB_PATH = os.environ.get("DB_PATH", os.path.join(_data_dir, "labin.db"))
 security = HTTPBearer()
 
 # ── Veritabani ────────────────────────────────────────────────────────────────
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    if USE_PG:
+        conn = psycopg2.connect(DATABASE_URL)
+        conn.autocommit = False
+        return conn
+    else:
+        import sqlite3 as _sq
+        _data_dir = "/data" if os.path.isdir("/data") else "."
+        db_path = os.path.join(_data_dir, "labin.db")
+        conn = _sq.connect(db_path)
+        conn.row_factory = _sq.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        return conn
+
+def row_to_dict(row):
+    """Hem sqlite3.Row hem psycopg2 satirini dict'e cevir"""
+    if row is None: return None
+    if USE_PG:
+        return dict(row)
+    return dict(row)
+
+def fetchone_dict(cursor):
+    if USE_PG:
+        row = cursor.fetchone()
+        if row is None: return None
+        cols = [d[0] for d in cursor.description]
+        return dict(zip(cols, row))
+    return cursor.fetchone()
+
+def fetchall_dict(cursor):
+    if USE_PG:
+        rows = cursor.fetchall()
+        if not rows: return []
+        cols = [d[0] for d in cursor.description]
+        return [dict(zip(cols, r)) for r in rows]
+    return cursor.fetchall()
+
+def ph(n=1):
+    """Placeholder: SQLite=?, PostgreSQL=%s"""
+    if USE_PG: return ','.join(['%s']*n) if n>1 else '%s'
+    return ','.join(['?']*n) if n>1 else '?'
+
+def adapt_sql(sql):
+    """SQLite sorgusunu PostgreSQL'e uyarla"""
+    if not USE_PG: return sql
+    import re
+    sql = sql.replace('?', '%s')
+    sql = sql.replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'SERIAL PRIMARY KEY')
+    sql = sql.replace('INSERT OR IGNORE', 'INSERT')
+    sql = sql.replace('INSERT OR REPLACE', 'INSERT')
+    sql = re.sub(r"DEFAULT \(datetime\('now'\)\)", "DEFAULT NOW()", sql)
+    sql = re.sub(r"DEFAULT \(date\('now'\)\)", "DEFAULT NOW()", sql)
+    sql = re.sub(r"COALESCE\(SUM\((\w+)\),0\)", r"COALESCE(SUM(),0)", sql)
+    return sql
 
 def son_guncelleme_guncelle(conn):
-    """Her veri degisikliginde son guncelleme tarihini kaydet"""
     simdi = datetime.now().strftime("%d.%m.%Y %H:%M")
-    conn.execute("INSERT OR REPLACE INTO ayarlar (anahtar, deger) VALUES ('son_guncelleme', ?)", (simdi,))
+    if USE_PG:
+        c = conn.cursor()
+        c.execute("INSERT INTO ayarlar (anahtar, deger) VALUES (%s, %s) ON CONFLICT (anahtar) DO UPDATE SET deger=EXCLUDED.deger", ('son_guncelleme', simdi))
+    else:
+        conn.execute("INSERT OR REPLACE INTO ayarlar (anahtar, deger) VALUES (?, ?)", ('son_guncelleme', simdi))
 
 def init_db():
     conn = get_db()
     c = conn.cursor()
+    auto = "SERIAL" if USE_PG else "INTEGER"
+    pk = f"{auto} PRIMARY KEY" + ("" if USE_PG else " AUTOINCREMENT")
 
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS kullanicilar (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        kullanici_adi TEXT UNIQUE NOT NULL,
-        sifre_hash TEXT NOT NULL,
-        ad TEXT NOT NULL,
-        rol TEXT DEFAULT 'kullanici',
-        aktif INTEGER DEFAULT 1,
-        kayit_tarihi TEXT DEFAULT (date('now'))
-    )""")
+    tablos = [
+        f"""CREATE TABLE IF NOT EXISTS kullanicilar (
+            id {pk},
+            kullanici_adi TEXT UNIQUE NOT NULL,
+            sifre_hash TEXT NOT NULL,
+            ad TEXT NOT NULL,
+            rol TEXT DEFAULT 'kullanici',
+            aktif INTEGER DEFAULT 1,
+            kayit_tarihi TEXT DEFAULT CURRENT_DATE
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS musteriler (
+            id {pk},
+            tip TEXT NOT NULL,
+            firma TEXT NOT NULL,
+            yetkili TEXT, telefon TEXT, eposta TEXT,
+            vergino TEXT, adres TEXT, belediye TEXT,
+            kayit_tarihi TEXT DEFAULT CURRENT_DATE
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS musteri_fiyatlar (
+            id {pk},
+            musteri_id INTEGER,
+            taze_beton REAL DEFAULT 0,
+            celik REAL DEFAULT 0,
+            karot REAL DEFAULT 0,
+            tarih TEXT DEFAULT CURRENT_DATE
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS numuneler (
+            id {pk},
+            tur TEXT NOT NULL,
+            musteri_id INTEGER,
+            musteri_adi TEXT,
+            tarih TEXT NOT NULL,
+            yibf TEXT, belediye TEXT, blok TEXT, kat TEXT,
+            m3 TEXT, beton_sinifi TEXT, caplar TEXT,
+            adet INTEGER DEFAULT 1,
+            birim_fiyat REAL DEFAULT 0,
+            kdv_oran REAL DEFAULT 20,
+            kdv_tutar REAL DEFAULT 0,
+            toplam REAL DEFAULT 0,
+            toplam_kdvli REAL DEFAULT 0,
+            durum TEXT DEFAULT 'Beklemede',
+            not_ TEXT,
+            is_adi TEXT DEFAULT '',
+            olusturma TEXT DEFAULT CURRENT_TIMESTAMP
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS gelirler (
+            id {pk},
+            tarih TEXT NOT NULL,
+            aciklama TEXT NOT NULL,
+            musteri_id INTEGER,
+            musteri_adi TEXT,
+            tutar REAL NOT NULL,
+            odeme_turu TEXT DEFAULT 'Nakit',
+            olusturma TEXT DEFAULT CURRENT_TIMESTAMP
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS giderler (
+            id {pk},
+            tarih TEXT NOT NULL,
+            kategori TEXT NOT NULL,
+            aciklama TEXT NOT NULL,
+            arac TEXT,
+            tutar REAL NOT NULL,
+            olusturma TEXT DEFAULT CURRENT_TIMESTAMP
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS personeller (
+            id {pk},
+            ad TEXT NOT NULL,
+            telefon TEXT, iban TEXT, gorev TEXT,
+            maas REAL DEFAULT 0,
+            ise_giris TEXT, cikis_tarihi TEXT,
+            durum TEXT DEFAULT 'Aktif',
+            kayit_tarihi TEXT DEFAULT CURRENT_DATE
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS cek_senetler (
+            id {pk},
+            vade TEXT NOT NULL,
+            tur TEXT DEFAULT 'Cek',
+            musteri_adi TEXT, banka TEXT, no TEXT,
+            tutar REAL NOT NULL,
+            durum TEXT DEFAULT 'Beklemede',
+            kayit TEXT DEFAULT CURRENT_DATE
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS beton_programi (
+            id {pk},
+            tarih TEXT NOT NULL,
+            saat TEXT, musteri_adi TEXT, yibf TEXT,
+            belediye TEXT, blok TEXT, kat TEXT,
+            m3 TEXT, beton_sinifi TEXT, not_ TEXT,
+            olusturma TEXT DEFAULT CURRENT_TIMESTAMP
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS araclar (
+            id {pk},
+            plaka TEXT NOT NULL,
+            model TEXT
+        )""",
+        """CREATE TABLE IF NOT EXISTS ayarlar (
+            anahtar TEXT PRIMARY KEY,
+            deger TEXT
+        )""",
+    ]
 
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS musteriler (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tip TEXT NOT NULL,
-        firma TEXT NOT NULL,
-        yetkili TEXT,
-        telefon TEXT,
-        eposta TEXT,
-        vergino TEXT,
-        adres TEXT,
-        belediye TEXT,
-        kayit_tarihi TEXT DEFAULT (date('now'))
-    )""")
-
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS musteri_fiyatlar (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        musteri_id INTEGER REFERENCES musteriler(id) ON DELETE CASCADE,
-        taze_beton REAL DEFAULT 0,
-        celik REAL DEFAULT 0,
-        karot REAL DEFAULT 0,
-        tarih TEXT DEFAULT (date('now'))
-    )""")
-
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS numuneler (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tur TEXT NOT NULL,
-        musteri_id INTEGER REFERENCES musteriler(id),
-        musteri_adi TEXT,
-        tarih TEXT NOT NULL,
-        yibf TEXT,
-        belediye TEXT,
-        blok TEXT,
-        kat TEXT,
-        m3 TEXT,
-        beton_sinifi TEXT,
-        caplar TEXT,
-        adet INTEGER DEFAULT 1,
-        birim_fiyat REAL DEFAULT 0,
-        kdv_oran REAL DEFAULT 20,
-        kdv_tutar REAL DEFAULT 0,
-        toplam REAL DEFAULT 0,
-        toplam_kdvli REAL DEFAULT 0,
-        durum TEXT DEFAULT 'Beklemede',
-        not_ TEXT,
-        is_adi TEXT DEFAULT '',
-        olusturma TEXT DEFAULT (datetime('now'))
-    )""")
-
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS gelirler (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tarih TEXT NOT NULL,
-        aciklama TEXT NOT NULL,
-        musteri_id INTEGER,
-        musteri_adi TEXT,
-        tutar REAL NOT NULL,
-        odeme_turu TEXT DEFAULT 'Nakit',
-        olusturma TEXT DEFAULT (datetime('now'))
-    )""")
-
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS giderler (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tarih TEXT NOT NULL,
-        kategori TEXT NOT NULL,
-        aciklama TEXT NOT NULL,
-        arac TEXT,
-        tutar REAL NOT NULL,
-        olusturma TEXT DEFAULT (datetime('now'))
-    )""")
-
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS personeller (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        ad TEXT NOT NULL,
-        telefon TEXT,
-        iban TEXT,
-        gorev TEXT,
-        maas REAL DEFAULT 0,
-        ise_giris TEXT,
-        cikis_tarihi TEXT,
-        durum TEXT DEFAULT 'Aktif',
-        kayit_tarihi TEXT DEFAULT (date('now'))
-    )""")
-
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS cek_senetler (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        vade TEXT NOT NULL,
-        tur TEXT DEFAULT 'Cek',
-        musteri_adi TEXT,
-        banka TEXT,
-        no TEXT,
-        tutar REAL NOT NULL,
-        durum TEXT DEFAULT 'Beklemede',
-        kayit TEXT DEFAULT (date('now'))
-    )""")
-
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS beton_programi (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tarih TEXT NOT NULL,
-        saat TEXT,
-        musteri_adi TEXT,
-        yibf TEXT,
-        belediye TEXT,
-        blok TEXT,
-        kat TEXT,
-        m3 TEXT,
-        beton_sinifi TEXT,
-        not_ TEXT,
-        is_adi TEXT DEFAULT '',
-        olusturma TEXT DEFAULT (datetime('now'))
-    )""")
-
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS araclar (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        plaka TEXT NOT NULL,
-        model TEXT
-    )""")
-
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS ayarlar (
-        anahtar TEXT PRIMARY KEY,
-        deger TEXT
-    )""")
-    c.execute("INSERT OR IGNORE INTO ayarlar (anahtar, deger) VALUES ('son_guncelleme', '')")
-
-    # Migration - mevcut tablolara eksik kolonlari ekle
-    try:
-        c.execute("ALTER TABLE numuneler ADD COLUMN is_adi TEXT DEFAULT ''")
-    except: pass
-    try:
-        c.execute("ALTER TABLE ayarlar ADD COLUMN deger TEXT")
-    except: pass
+    for sql in tablos:
+        try: c.execute(sql)
+        except Exception as e: print(f"Tablo hatasi: {e}")
 
     # Migration - mevcut tablolara eksik kolonlari ekle
     for migration in [
         "ALTER TABLE numuneler ADD COLUMN is_adi TEXT DEFAULT ''",
-        "ALTER TABLE ayarlar ADD COLUMN deger2 TEXT",
+        "ALTER TABLE ayarlar ADD COLUMN deger TEXT",
     ]:
         try: c.execute(migration)
         except: pass
 
-    # Admin kullanici olustur
+    # Varsayilan ayar
+    try:
+        if USE_PG:
+            c.execute("INSERT INTO ayarlar (anahtar, deger) VALUES (%s, %s) ON CONFLICT DO NOTHING", ('son_guncelleme', ''))
+        else:
+            c.execute("INSERT OR IGNORE INTO ayarlar (anahtar, deger) VALUES (?, ?)", ('son_guncelleme', ''))
+    except: pass
+
+    # Admin kullanici
     admin_hash = hashlib.sha256("101112da".encode()).hexdigest()
-    c.execute("""
-        INSERT OR IGNORE INTO kullanicilar (kullanici_adi, sifre_hash, ad, rol)
-        VALUES (?, ?, ?, ?)
-    """, ("labin", admin_hash, "Muhammed Yardimci", "admin"))
+    try:
+        if USE_PG:
+            c.execute("INSERT INTO kullanicilar (kullanici_adi,sifre_hash,ad,rol) VALUES (%s,%s,%s,%s) ON CONFLICT (kullanici_adi) DO NOTHING",
+                      ("labin", admin_hash, "Muhammed Yardimci", "admin"))
+        else:
+            c.execute("INSERT OR IGNORE INTO kullanicilar (kullanici_adi,sifre_hash,ad,rol) VALUES (?,?,?,?)",
+                      ("labin", admin_hash, "Muhammed Yardimci", "admin"))
+    except: pass
 
     conn.commit()
     conn.close()
@@ -337,10 +364,10 @@ class KullaniciModel(BaseModel):
 def giris(data: GirisModel):
     conn = get_db()
     sifre_hash = hashlib.sha256(data.sifre.encode()).hexdigest()
-    k = conn.execute(
-        "SELECT * FROM kullanicilar WHERE kullanici_adi=? AND sifre_hash=? AND aktif=1",
-        (data.kullanici_adi, sifre_hash)
-    ).fetchone()
+    c = conn.cursor()
+    c.execute(adapt_sql("SELECT * FROM kullanicilar WHERE kullanici_adi=? AND sifre_hash=? AND aktif=1"),
+              (data.kullanici_adi, sifre_hash))
+    k = fetchone_dict(c)
     conn.close()
     if not k:
         raise HTTPException(status_code=401, detail="Kullanici adi veya sifre yanlis")
@@ -356,21 +383,23 @@ def me(token=Depends(token_dogrula)):
 @app.get("/kullanicilar")
 def kullanicilar_listele(token=Depends(admin_kontrol)):
     conn = get_db()
-    rows = conn.execute("SELECT id,kullanici_adi,ad,rol,aktif FROM kullanicilar").fetchall()
+    c = conn.cursor()
+    c.execute("SELECT id,kullanici_adi,ad,rol,aktif FROM kullanicilar")
+    rows = fetchall_dict(c)
     conn.close()
-    return [dict(r) for r in rows]
+    return rows
 
 @app.post("/kullanicilar")
 def kullanici_ekle(data: KullaniciModel, token=Depends(admin_kontrol)):
     conn = get_db()
     sifre_hash = hashlib.sha256(data.sifre.encode()).hexdigest()
     try:
-        conn.execute(
-            "INSERT INTO kullanicilar (kullanici_adi,sifre_hash,ad,rol) VALUES (?,?,?,?)",
-            (data.kullanici_adi, sifre_hash, data.ad, data.rol)
-        )
+        c = conn.cursor()
+        c.execute(adapt_sql("INSERT INTO kullanicilar (kullanici_adi,sifre_hash,ad,rol) VALUES (?,?,?,?)"),
+                  (data.kullanici_adi, sifre_hash, data.ad, data.rol))
         conn.commit()
-    except sqlite3.IntegrityError:
+    except Exception:
+        conn.rollback()
         raise HTTPException(status_code=400, detail="Bu kullanici adi zaten var")
     finally:
         conn.close()
@@ -380,17 +409,20 @@ def kullanici_ekle(data: KullaniciModel, token=Depends(admin_kontrol)):
 def kullanici_durum(kid: int, data: DurumModel, token=Depends(admin_kontrol)):
     conn = get_db()
     aktif = 1 if data.durum == "aktif" else 0
-    conn.execute("UPDATE kullanicilar SET aktif=? WHERE id=?", (aktif, kid))
+    c = conn.cursor()
+    c.execute(adapt_sql("UPDATE kullanicilar SET aktif=? WHERE id=?"), (aktif, kid))
     conn.commit(); conn.close()
     return {"mesaj": "Durum guncellendi"}
 
 @app.delete("/kullanicilar/{kid}")
 def kullanici_sil(kid: int, token=Depends(admin_kontrol)):
     conn = get_db()
-    k = conn.execute("SELECT kullanici_adi FROM kullanicilar WHERE id=?", (kid,)).fetchone()
+    c = conn.cursor()
+    c.execute(adapt_sql("SELECT kullanici_adi FROM kullanicilar WHERE id=?"), (kid,))
+    k = fetchone_dict(c)
     if k and k["kullanici_adi"] == "labin":
         raise HTTPException(status_code=400, detail="Ana admin silinemez")
-    conn.execute("DELETE FROM kullanicilar WHERE id=?", (kid,))
+    c.execute(adapt_sql("DELETE FROM kullanicilar WHERE id=?"), (kid,))
     conn.commit(); conn.close()
     return {"mesaj": "Kullanici silindi"}
 
@@ -398,15 +430,15 @@ def kullanici_sil(kid: int, token=Depends(admin_kontrol)):
 @app.get("/musteriler")
 def musteriler(token=Depends(token_dogrula)):
     conn = get_db()
-    rows = conn.execute("SELECT * FROM musteriler ORDER BY firma").fetchall()
+    c = conn.cursor()
+    c.execute("SELECT * FROM musteriler ORDER BY firma")
+    rows = fetchall_dict(c)
     result = []
     for r in rows:
         m = dict(r)
-        fp = conn.execute(
-            "SELECT * FROM musteri_fiyatlar WHERE musteri_id=? ORDER BY tarih DESC LIMIT 1",
-            (r["id"],)
-        ).fetchone()
-        m["son_fiyat"] = dict(fp) if fp else {"taze_beton":0,"celik":0,"karot":0}
+        c.execute(adapt_sql("SELECT * FROM musteri_fiyatlar WHERE musteri_id=? ORDER BY tarih DESC LIMIT 1"), (r["id"],))
+        fp = fetchone_dict(c)
+        m["son_fiyat"] = fp if fp else {"taze_beton":0,"celik":0,"karot":0}
         result.append(m)
     conn.close()
     return result
@@ -414,48 +446,44 @@ def musteriler(token=Depends(token_dogrula)):
 @app.get("/musteriler/{mid}")
 def musteri_detay(mid: int, token=Depends(token_dogrula)):
     conn = get_db()
-    m = conn.execute("SELECT * FROM musteriler WHERE id=?", (mid,)).fetchone()
+    c = conn.cursor()
+    c.execute(adapt_sql("SELECT * FROM musteriler WHERE id=?"), (mid,))
+    m = fetchone_dict(c)
     if not m: raise HTTPException(404, "Musteri bulunamadi")
     result = dict(m)
-    fiyatlar = conn.execute(
-        "SELECT * FROM musteri_fiyatlar WHERE musteri_id=? ORDER BY tarih DESC",
-        (mid,)
-    ).fetchall()
-    result["fiyatlar"] = [dict(f) for f in fiyatlar]
+    c.execute(adapt_sql("SELECT * FROM musteri_fiyatlar WHERE musteri_id=? ORDER BY tarih DESC"), (mid,))
+    result["fiyatlar"] = fetchall_dict(c)
     conn.close()
     return result
 
 @app.post("/musteriler")
 def musteri_ekle(data: MusteriModel, token=Depends(admin_kontrol)):
     conn = get_db()
-    cur = conn.execute(
-        "INSERT INTO musteriler (tip,firma,yetkili,telefon,eposta,vergino,adres,belediye) VALUES (?,?,?,?,?,?,?,?)",
-        (data.tip,data.firma,data.yetkili,data.telefon,data.eposta,data.vergino,data.adres,data.belediye)
-    )
-    mid = cur.lastrowid
-    conn.execute(
-        "INSERT INTO musteri_fiyatlar (musteri_id,taze_beton,celik,karot) VALUES (?,?,?,?)",
-        (mid, data.taze_beton, data.celik, data.karot)
-    )
+    c = conn.cursor()
+    if USE_PG:
+        c.execute("INSERT INTO musteriler (tip,firma,yetkili,telefon,eposta,vergino,adres,belediye) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                  (data.tip,data.firma,data.yetkili,data.telefon,data.eposta,data.vergino,data.adres,data.belediye))
+        mid = c.fetchone()[0]
+    else:
+        c.execute("INSERT INTO musteriler (tip,firma,yetkili,telefon,eposta,vergino,adres,belediye) VALUES (?,?,?,?,?,?,?,?)",
+                  (data.tip,data.firma,data.yetkili,data.telefon,data.eposta,data.vergino,data.adres,data.belediye))
+        mid = c.lastrowid
+    c.execute(adapt_sql("INSERT INTO musteri_fiyatlar (musteri_id,taze_beton,celik,karot) VALUES (?,?,?,?)"),
+              (mid, data.taze_beton, data.celik, data.karot))
     conn.commit(); conn.close()
     return {"id": mid, "mesaj": "Musteri eklendi"}
 
 @app.put("/musteriler/{mid}")
 def musteri_guncelle(mid: int, data: MusteriModel, token=Depends(admin_kontrol)):
     conn = get_db()
-    conn.execute(
-        "UPDATE musteriler SET tip=?,firma=?,yetkili=?,telefon=?,eposta=?,vergino=?,adres=?,belediye=? WHERE id=?",
-        (data.tip,data.firma,data.yetkili,data.telefon,data.eposta,data.vergino,data.adres,data.belediye,mid)
-    )
-    # Fiyat degistiyse yeni kayit ekle
-    son = conn.execute(
-        "SELECT * FROM musteri_fiyatlar WHERE musteri_id=? ORDER BY tarih DESC LIMIT 1", (mid,)
-    ).fetchone()
+    c = conn.cursor()
+    c.execute(adapt_sql("UPDATE musteriler SET tip=?,firma=?,yetkili=?,telefon=?,eposta=?,vergino=?,adres=?,belediye=? WHERE id=?"),
+              (data.tip,data.firma,data.yetkili,data.telefon,data.eposta,data.vergino,data.adres,data.belediye,mid))
+    c.execute(adapt_sql("SELECT * FROM musteri_fiyatlar WHERE musteri_id=? ORDER BY tarih DESC LIMIT 1"), (mid,))
+    son = fetchone_dict(c)
     if not son or (son["taze_beton"]!=data.taze_beton or son["celik"]!=data.celik or son["karot"]!=data.karot):
-        conn.execute(
-            "INSERT INTO musteri_fiyatlar (musteri_id,taze_beton,celik,karot) VALUES (?,?,?,?)",
-            (mid, data.taze_beton, data.celik, data.karot)
-        )
+        c.execute(adapt_sql("INSERT INTO musteri_fiyatlar (musteri_id,taze_beton,celik,karot) VALUES (?,?,?,?)"),
+                  (mid, data.taze_beton, data.celik, data.karot))
     conn.commit(); conn.close()
     return {"mesaj": "Guncellendi"}
 
@@ -470,46 +498,56 @@ def musteri_sil(mid: int, token=Depends(admin_kontrol)):
 @app.get("/numuneler")
 def numuneler(tur: Optional[str] = None, token=Depends(token_dogrula)):
     conn = get_db()
+    c = conn.cursor()
     if tur:
-        rows = conn.execute("SELECT * FROM numuneler WHERE tur=? ORDER BY tarih DESC", (tur,)).fetchall()
+        c.execute(adapt_sql("SELECT * FROM numuneler WHERE tur=? ORDER BY tarih DESC"), (tur,))
     else:
-        rows = conn.execute("SELECT * FROM numuneler ORDER BY tarih DESC").fetchall()
+        c.execute("SELECT * FROM numuneler ORDER BY tarih DESC")
+    rows = fetchall_dict(c)
     conn.close()
-    return [dict(r) for r in rows]
+    return rows
 
 @app.post("/numuneler")
 def numune_ekle(data: NumuneModel, token=Depends(admin_kontrol)):
     conn = get_db()
-    cur = conn.execute("""
-        INSERT INTO numuneler (tur,musteri_id,musteri_adi,tarih,yibf,belediye,blok,kat,
-        m3,beton_sinifi,caplar,adet,birim_fiyat,kdv_oran,kdv_tutar,toplam,toplam_kdvli,durum,not_,is_adi)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-        (data.tur,data.musteri_id,data.musteri_adi,data.tarih,data.yibf,data.belediye,
-         data.blok,data.kat,data.m3,data.beton_sinifi,data.caplar,data.adet,
-         data.birim_fiyat,data.kdv_oran,data.kdv_tutar,data.toplam,data.toplam_kdvli,
-         data.durum,data.not_,data.is_adi)
-    )
+    c = conn.cursor()
+    vals = (data.tur,data.musteri_id,data.musteri_adi,data.tarih,data.yibf,data.belediye,
+            data.blok,data.kat,data.m3,data.beton_sinifi,data.caplar,data.adet,
+            data.birim_fiyat,data.kdv_oran,data.kdv_tutar,data.toplam,data.toplam_kdvli,
+            data.durum,data.not_,data.is_adi)
+    if USE_PG:
+        c.execute("""INSERT INTO numuneler (tur,musteri_id,musteri_adi,tarih,yibf,belediye,blok,kat,
+            m3,beton_sinifi,caplar,adet,birim_fiyat,kdv_oran,kdv_tutar,toplam,toplam_kdvli,durum,not_,is_adi)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""", vals)
+        nid = c.fetchone()[0]
+    else:
+        c.execute("""INSERT INTO numuneler (tur,musteri_id,musteri_adi,tarih,yibf,belediye,blok,kat,
+            m3,beton_sinifi,caplar,adet,birim_fiyat,kdv_oran,kdv_tutar,toplam,toplam_kdvli,durum,not_,is_adi)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", vals)
+        nid = c.lastrowid
     son_guncelleme_guncelle(conn)
     conn.commit(); conn.close()
-    return {"id": cur.lastrowid}
+    return {"id": nid}
 
 @app.put("/numuneler/{nid}")
 def numune_guncelle(nid: int, data: NumuneModel, token=Depends(admin_kontrol)):
     conn = get_db()
-    conn.execute("""UPDATE numuneler SET tur=?,musteri_id=?,musteri_adi=?,tarih=?,yibf=?,
+    c = conn.cursor()
+    c.execute(adapt_sql("""UPDATE numuneler SET tur=?,musteri_id=?,musteri_adi=?,tarih=?,yibf=?,
         belediye=?,blok=?,kat=?,m3=?,beton_sinifi=?,caplar=?,adet=?,birim_fiyat=?,
-        kdv_oran=?,kdv_tutar=?,toplam=?,toplam_kdvli=?,durum=?,not_=? WHERE id=?""",
+        kdv_oran=?,kdv_tutar=?,toplam=?,toplam_kdvli=?,durum=?,not_=?,is_adi=? WHERE id=?"""),
         (data.tur,data.musteri_id,data.musteri_adi,data.tarih,data.yibf,data.belediye,
          data.blok,data.kat,data.m3,data.beton_sinifi,data.caplar,data.adet,
          data.birim_fiyat,data.kdv_oran,data.kdv_tutar,data.toplam,data.toplam_kdvli,
-         data.durum,data.not_,nid))
+         data.durum,data.not_,data.is_adi,nid))
     conn.commit(); conn.close()
     return {"mesaj": "Guncellendi"}
 
 @app.put("/numuneler/{nid}/durum")
 def numune_durum(nid: int, data: DurumModel, token=Depends(admin_kontrol)):
     conn = get_db()
-    conn.execute("UPDATE numuneler SET durum=? WHERE id=?", (data.durum, nid))
+    c = conn.cursor()
+    c.execute(adapt_sql("UPDATE numuneler SET durum=? WHERE id=?"), (data.durum, nid))
     conn.commit(); conn.close()
     return {"mesaj": "Durum guncellendi"}
 
@@ -524,20 +562,27 @@ def numune_sil(nid: int, token=Depends(admin_kontrol)):
 @app.get("/gelirler")
 def gelirler(token=Depends(token_dogrula)):
     conn = get_db()
-    rows = conn.execute("SELECT * FROM gelirler ORDER BY tarih DESC").fetchall()
+    c = conn.cursor()
+    c.execute("SELECT * FROM gelirler ORDER BY tarih DESC")
+    rows = fetchall_dict(c)
     conn.close()
-    return [dict(r) for r in rows]
+    return rows
 
 @app.post("/gelirler")
 def gelir_ekle(data: GelirModel, token=Depends(admin_kontrol)):
     conn = get_db()
-    cur = conn.execute(
-        "INSERT INTO gelirler (tarih,aciklama,musteri_id,musteri_adi,tutar,odeme_turu) VALUES (?,?,?,?,?,?)",
-        (data.tarih,data.aciklama,data.musteri_id,data.musteri_adi,data.tutar,data.odeme_turu)
-    )
+    c = conn.cursor()
+    if USE_PG:
+        c.execute("INSERT INTO gelirler (tarih,aciklama,musteri_id,musteri_adi,tutar,odeme_turu) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
+                  (data.tarih,data.aciklama,data.musteri_id,data.musteri_adi,data.tutar,data.odeme_turu))
+        gid = c.fetchone()[0]
+    else:
+        c.execute("INSERT INTO gelirler (tarih,aciklama,musteri_id,musteri_adi,tutar,odeme_turu) VALUES (?,?,?,?,?,?)",
+                  (data.tarih,data.aciklama,data.musteri_id,data.musteri_adi,data.tutar,data.odeme_turu))
+        gid = c.lastrowid
     son_guncelleme_guncelle(conn)
     conn.commit(); conn.close()
-    return {"id": cur.lastrowid}
+    return {"id": gid}
 
 @app.delete("/gelirler/{gid}")
 def gelir_sil(gid: int, token=Depends(admin_kontrol)):
@@ -550,20 +595,27 @@ def gelir_sil(gid: int, token=Depends(admin_kontrol)):
 @app.get("/giderler")
 def giderler(token=Depends(token_dogrula)):
     conn = get_db()
-    rows = conn.execute("SELECT * FROM giderler ORDER BY tarih DESC").fetchall()
+    c = conn.cursor()
+    c.execute("SELECT * FROM giderler ORDER BY tarih DESC")
+    rows = fetchall_dict(c)
     conn.close()
-    return [dict(r) for r in rows]
+    return rows
 
 @app.post("/giderler")
 def gider_ekle(data: GiderModel, token=Depends(admin_kontrol)):
     conn = get_db()
-    cur = conn.execute(
-        "INSERT INTO giderler (tarih,kategori,aciklama,arac,tutar) VALUES (?,?,?,?,?)",
-        (data.tarih,data.kategori,data.aciklama,data.arac,data.tutar)
-    )
+    c = conn.cursor()
+    if USE_PG:
+        c.execute("INSERT INTO giderler (tarih,kategori,aciklama,arac,tutar) VALUES (%s,%s,%s,%s,%s) RETURNING id",
+                  (data.tarih,data.kategori,data.aciklama,data.arac,data.tutar))
+        gi_id = c.fetchone()[0]
+    else:
+        c.execute("INSERT INTO giderler (tarih,kategori,aciklama,arac,tutar) VALUES (?,?,?,?,?)",
+                  (data.tarih,data.kategori,data.aciklama,data.arac,data.tutar))
+        gi_id = c.lastrowid
     son_guncelleme_guncelle(conn)
     conn.commit(); conn.close()
-    return {"id": cur.lastrowid}
+    return {"id": gi_id}
 
 @app.delete("/giderler/{gid}")
 def gider_sil(gid: int, token=Depends(admin_kontrol)):
@@ -576,27 +628,33 @@ def gider_sil(gid: int, token=Depends(admin_kontrol)):
 @app.get("/personeller")
 def personeller(token=Depends(token_dogrula)):
     conn = get_db()
-    rows = conn.execute("SELECT * FROM personeller ORDER BY durum,ad").fetchall()
+    c = conn.cursor()
+    c.execute("SELECT * FROM personeller ORDER BY durum,ad")
+    rows = fetchall_dict(c)
     conn.close()
-    return [dict(r) for r in rows]
+    return rows
 
 @app.post("/personeller")
 def personel_ekle(data: PersonelModel, token=Depends(admin_kontrol)):
     conn = get_db()
-    cur = conn.execute(
-        "INSERT INTO personeller (ad,telefon,iban,gorev,maas,ise_giris,cikis_tarihi,durum) VALUES (?,?,?,?,?,?,?,?)",
-        (data.ad,data.telefon,data.iban,data.gorev,data.maas,data.ise_giris,data.cikis_tarihi,data.durum)
-    )
+    c = conn.cursor()
+    if USE_PG:
+        c.execute("INSERT INTO personeller (ad,telefon,iban,gorev,maas,ise_giris,cikis_tarihi,durum) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                  (data.ad,data.telefon,data.iban,data.gorev,data.maas,data.ise_giris,data.cikis_tarihi,data.durum))
+        pid2 = c.fetchone()[0]
+    else:
+        c.execute("INSERT INTO personeller (ad,telefon,iban,gorev,maas,ise_giris,cikis_tarihi,durum) VALUES (?,?,?,?,?,?,?,?)",
+                  (data.ad,data.telefon,data.iban,data.gorev,data.maas,data.ise_giris,data.cikis_tarihi,data.durum))
+        pid2 = c.lastrowid
     conn.commit(); conn.close()
-    return {"id": cur.lastrowid}
+    return {"id": pid2}
 
 @app.put("/personeller/{pid}")
 def personel_guncelle(pid: int, data: PersonelModel, token=Depends(admin_kontrol)):
     conn = get_db()
-    conn.execute(
-        "UPDATE personeller SET ad=?,telefon=?,iban=?,gorev=?,maas=?,ise_giris=?,cikis_tarihi=?,durum=? WHERE id=?",
-        (data.ad,data.telefon,data.iban,data.gorev,data.maas,data.ise_giris,data.cikis_tarihi,data.durum,pid)
-    )
+    c = conn.cursor()
+    c.execute(adapt_sql("UPDATE personeller SET ad=?,telefon=?,iban=?,gorev=?,maas=?,ise_giris=?,cikis_tarihi=?,durum=? WHERE id=?"),
+              (data.ad,data.telefon,data.iban,data.gorev,data.maas,data.ise_giris,data.cikis_tarihi,data.durum,pid))
     conn.commit(); conn.close()
     return {"mesaj": "Guncellendi"}
 
@@ -611,24 +669,32 @@ def personel_sil(pid: int, token=Depends(admin_kontrol)):
 @app.get("/cek-senetler")
 def cek_senetler(token=Depends(token_dogrula)):
     conn = get_db()
-    rows = conn.execute("SELECT * FROM cek_senetler ORDER BY vade").fetchall()
+    c = conn.cursor()
+    c.execute("SELECT * FROM cek_senetler ORDER BY vade")
+    rows = fetchall_dict(c)
     conn.close()
-    return [dict(r) for r in rows]
+    return rows
 
 @app.post("/cek-senetler")
 def cek_ekle(data: CekSenetModel, token=Depends(admin_kontrol)):
     conn = get_db()
-    cur = conn.execute(
-        "INSERT INTO cek_senetler (vade,tur,musteri_adi,banka,no,tutar,durum) VALUES (?,?,?,?,?,?,?)",
-        (data.vade,data.tur,data.musteri_adi,data.banka,data.no,data.tutar,data.durum)
-    )
+    c = conn.cursor()
+    if USE_PG:
+        c.execute("INSERT INTO cek_senetler (vade,tur,musteri_adi,banka,no,tutar,durum) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                  (data.vade,data.tur,data.musteri_adi,data.banka,data.no,data.tutar,data.durum))
+        cid2 = c.fetchone()[0]
+    else:
+        c.execute("INSERT INTO cek_senetler (vade,tur,musteri_adi,banka,no,tutar,durum) VALUES (?,?,?,?,?,?,?)",
+                  (data.vade,data.tur,data.musteri_adi,data.banka,data.no,data.tutar,data.durum))
+        cid2 = c.lastrowid
     conn.commit(); conn.close()
-    return {"id": cur.lastrowid}
+    return {"id": cid2}
 
 @app.put("/cek-senetler/{cid}/durum")
 def cek_durum(cid: int, data: DurumModel, token=Depends(admin_kontrol)):
     conn = get_db()
-    conn.execute("UPDATE cek_senetler SET durum=? WHERE id=?", (data.durum, cid))
+    c = conn.cursor()
+    c.execute(adapt_sql("UPDATE cek_senetler SET durum=? WHERE id=?"), (data.durum, cid))
     conn.commit(); conn.close()
     return {"mesaj": "Durum guncellendi"}
 
@@ -643,19 +709,26 @@ def cek_sil(cid: int, token=Depends(admin_kontrol)):
 @app.get("/beton-programi")
 def beton_programi(token=Depends(token_dogrula)):
     conn = get_db()
-    rows = conn.execute("SELECT * FROM beton_programi ORDER BY tarih,saat").fetchall()
+    c = conn.cursor()
+    c.execute("SELECT * FROM beton_programi ORDER BY tarih,saat")
+    rows = fetchall_dict(c)
     conn.close()
-    return [dict(r) for r in rows]
+    return rows
 
 @app.post("/beton-programi")
 def beton_ekle(data: BetonProgramModel, token=Depends(admin_kontrol)):
     conn = get_db()
-    cur = conn.execute(
-        "INSERT INTO beton_programi (tarih,saat,musteri_adi,yibf,belediye,blok,kat,m3,beton_sinifi,not_) VALUES (?,?,?,?,?,?,?,?,?,?)",
-        (data.tarih,data.saat,data.musteri_adi,data.yibf,data.belediye,data.blok,data.kat,data.m3,data.beton_sinifi,data.not_)
-    )
+    c = conn.cursor()
+    if USE_PG:
+        c.execute("INSERT INTO beton_programi (tarih,saat,musteri_adi,yibf,belediye,blok,kat,m3,beton_sinifi,not_) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                  (data.tarih,data.saat,data.musteri_adi,data.yibf,data.belediye,data.blok,data.kat,data.m3,data.beton_sinifi,data.not_))
+        bid2 = c.fetchone()[0]
+    else:
+        c.execute("INSERT INTO beton_programi (tarih,saat,musteri_adi,yibf,belediye,blok,kat,m3,beton_sinifi,not_) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                  (data.tarih,data.saat,data.musteri_adi,data.yibf,data.belediye,data.blok,data.kat,data.m3,data.beton_sinifi,data.not_))
+        bid2 = c.lastrowid
     conn.commit(); conn.close()
-    return {"id": cur.lastrowid}
+    return {"id": bid2}
 
 @app.delete("/beton-programi/{bid}")
 def beton_sil(bid: int, token=Depends(admin_kontrol)):
@@ -668,9 +741,11 @@ def beton_sil(bid: int, token=Depends(admin_kontrol)):
 @app.get("/araclar")
 def araclar(token=Depends(token_dogrula)):
     conn = get_db()
-    rows = conn.execute("SELECT * FROM araclar ORDER BY plaka").fetchall()
+    c = conn.cursor()
+    c.execute("SELECT * FROM araclar ORDER BY plaka")
+    rows = fetchall_dict(c)
     conn.close()
-    return [dict(r) for r in rows]
+    return rows
 
 @app.post("/araclar")
 def arac_ekle(plaka: str, model: str = "", token=Depends(admin_kontrol)):
@@ -690,27 +765,30 @@ def arac_sil(aid: int, token=Depends(admin_kontrol)):
 @app.get("/ozet")
 def ozet(bas: Optional[str] = None, bit: Optional[str] = None, token=Depends(token_dogrula)):
     conn = get_db()
-    # Tarih filtresi
+    c = conn.cursor()
+    ph1 = '%s' if USE_PG else '?'
     if bas and bit:
-        t_where = f"AND tarih >= '{bas}' AND tarih <= '{bit}'"
-        t_where_cek = f"AND vade >= '{bas}' AND vade <= '{bit}'"
+        t_where = f"AND tarih >= {ph1} AND tarih <= {ph1}"
+        t_where_cek = f"AND vade >= {ph1} AND vade <= {ph1}"
+        t_params = (bas, bit)
     else:
-        t_where = ""
-        t_where_cek = ""
+        t_where = ""; t_where_cek = ""; t_params = ()
 
-    toplam_numune = conn.execute(f"SELECT COALESCE(SUM(toplam_kdvli),0) FROM numuneler WHERE 1=1 {t_where}").fetchone()[0]
-    gelir_toplam = conn.execute(f"SELECT COALESCE(SUM(tutar),0) FROM gelirler WHERE 1=1 {t_where}").fetchone()[0]
-    gider_toplam = conn.execute(f"SELECT COALESCE(SUM(tutar),0) FROM giderler WHERE 1=1 {t_where}").fetchone()[0]
-    cek_toplam = conn.execute(
-        f"SELECT COALESCE(SUM(tutar),0) FROM cek_senetler WHERE durum!='Karsilıksız' {t_where_cek}"
-    ).fetchone()[0]
+    def scalar(sql, params=()):
+        c.execute(sql, params)
+        r = c.fetchone()
+        return r[0] if r else 0
+
+    toplam_numune = scalar(f"SELECT COALESCE(SUM(toplam_kdvli),0) FROM numuneler WHERE 1=1 {t_where}", t_params)
+    gelir_toplam = scalar(f"SELECT COALESCE(SUM(tutar),0) FROM gelirler WHERE 1=1 {t_where}", t_params)
+    gider_toplam = scalar(f"SELECT COALESCE(SUM(tutar),0) FROM giderler WHERE 1=1 {t_where}", t_params)
+    cek_toplam = scalar(f"SELECT COALESCE(SUM(tutar),0) FROM cek_senetler WHERE durum!='Karsilıksız' {t_where_cek}", t_params)
     tahsilat = gelir_toplam + cek_toplam
-    beton_adet = conn.execute(f"SELECT COALESCE(SUM(adet),0) FROM numuneler WHERE tur='Taze Beton' {t_where}").fetchone()[0]
-    celik_adet = conn.execute(f"SELECT COALESCE(SUM(adet),0) FROM numuneler WHERE tur='Celik' {t_where}").fetchone()[0]
-    karot_adet = conn.execute(f"SELECT COALESCE(SUM(adet),0) FROM numuneler WHERE tur='Karot' {t_where}").fetchone()[0]
-    en_yakin_cek = conn.execute(
-        "SELECT vade FROM cek_senetler WHERE durum='Beklemede' ORDER BY vade LIMIT 1"
-    ).fetchone()
+    beton_adet = scalar(f"SELECT COALESCE(SUM(adet),0) FROM numuneler WHERE tur='Taze Beton' {t_where}", t_params)
+    celik_adet = scalar(f"SELECT COALESCE(SUM(adet),0) FROM numuneler WHERE tur='Celik' {t_where}", t_params)
+    karot_adet = scalar(f"SELECT COALESCE(SUM(adet),0) FROM numuneler WHERE tur='Karot' {t_where}", t_params)
+    c.execute("SELECT vade FROM cek_senetler WHERE durum='Beklemede' ORDER BY vade LIMIT 1")
+    en_yakin_cek = c.fetchone()
     conn.close()
     return {
         "toplam_numune": toplam_numune,
@@ -723,7 +801,7 @@ def ozet(bas: Optional[str] = None, bit: Optional[str] = None, token=Depends(tok
         "beton_adet": beton_adet,
         "celik_adet": celik_adet,
         "karot_adet": karot_adet,
-        "en_yakin_cek_vade": en_yakin_cek["vade"] if en_yakin_cek else None,
+        "en_yakin_cek_vade": (en_yakin_cek[0] if USE_PG else en_yakin_cek["vade"]) if en_yakin_cek else None,
     }
 
 # ── AYLIK ─────────────────────────────────────────────────────────────────────
@@ -732,20 +810,28 @@ def aylik(yil: int = None, token=Depends(token_dogrula)):
     if not yil:
         yil = datetime.now().year
     conn = get_db()
+    c = conn.cursor()
     result = []
     ay_adlari = ["","Oca","Şub","Mar","Nis","May","Haz","Tem","Ağu","Eyl","Eki","Kas","Ara"]
+
+    def scalar(sql, params):
+        c.execute(sql, params)
+        r = c.fetchone()
+        return float(r[0]) if r and r[0] else 0.0
+
+    ph1 = '%s' if USE_PG else '?'
+
     for ay in range(1, 13):
         prefix = f"{yil}-{ay:02d}"
-        gelir = conn.execute(
-            "SELECT COALESCE(SUM(tutar),0) FROM gelirler WHERE tarih LIKE ?", (f"{prefix}%",)
-        ).fetchone()[0]
-        cek = conn.execute(
-            "SELECT COALESCE(SUM(tutar),0) FROM cek_senetler WHERE vade LIKE ? AND durum!='Karsilıksız'",
-            (f"{prefix}%",)
-        ).fetchone()[0]
-        gider = conn.execute(
-            "SELECT COALESCE(SUM(tutar),0) FROM giderler WHERE tarih LIKE ?", (f"{prefix}%",)
-        ).fetchone()[0]
+        like_p = f"{prefix}%"
+        if USE_PG:
+            gelir = scalar("SELECT COALESCE(SUM(tutar),0) FROM gelirler WHERE tarih LIKE %s", (like_p,))
+            cek = scalar("SELECT COALESCE(SUM(tutar),0) FROM cek_senetler WHERE vade LIKE %s AND durum!='Karsilıksız'", (like_p,))
+            gider = scalar("SELECT COALESCE(SUM(tutar),0) FROM giderler WHERE tarih LIKE %s", (like_p,))
+        else:
+            gelir = scalar("SELECT COALESCE(SUM(tutar),0) FROM gelirler WHERE tarih LIKE ?", (like_p,))
+            cek = scalar("SELECT COALESCE(SUM(tutar),0) FROM cek_senetler WHERE vade LIKE ? AND durum!='Karsilıksız'", (like_p,))
+            gider = scalar("SELECT COALESCE(SUM(tutar),0) FROM giderler WHERE tarih LIKE ?", (like_p,))
         result.append({
             "ay": ay, "etiket": f"{ay_adlari[ay]} {yil}",
             "gelir": gelir + cek, "gider": gider, "net": gelir + cek - gider
@@ -757,9 +843,12 @@ def aylik(yil: int = None, token=Depends(token_dogrula)):
 @app.get("/son-guncelleme")
 def son_guncelleme_get(token=Depends(token_dogrula)):
     conn = get_db()
-    row = conn.execute("SELECT deger FROM ayarlar WHERE anahtar='son_guncelleme'").fetchone()
+    c = conn.cursor()
+    c.execute(adapt_sql("SELECT deger FROM ayarlar WHERE anahtar=?"), ('son_guncelleme',))
+    row = c.fetchone()
     conn.close()
-    return {"son_guncelleme": row["deger"] if row and row["deger"] else "Henüz veri girilmedi"}
+    deger = (row[0] if USE_PG else row["deger"]) if row else None
+    return {"son_guncelleme": deger if deger else "Henüz veri girilmedi"}
 
 # PWA Manifest
 @app.get("/manifest.json")
