@@ -295,48 +295,30 @@ const sayfalar = {
 
   // GENEL ÖZET
   ozet: async () => {
-    const d = await api('/ozet');
-    if (!d) return;
-    const html = `
+    const bugun = new Date();
+    const ilkGun = new Date(bugun.getFullYear(), bugun.getMonth(), 1).toISOString().split('T')[0];
+    const sonGun = bugun.toISOString().split('T')[0];
+
+    const ic = document.getElementById('sayfa-icerik');
+    ic.innerHTML = `
       <div class="sayfa-baslik">Genel Özet</div>
-      <div class="kart-grid kart-grid-4" style="margin-bottom:12px">
-        <div class="kart" onclick="sayfaGit('taze_beton')">
-          <div class="k-baslik">Toplam Tutar</div>
-          <div class="k-deger" style="color:var(--ana)">${para(d.toplam_numune)}</div>
-        </div>
-        <div class="kart" onclick="sayfaGit('gelir')">
-          <div class="k-baslik">Tahsil Edildi</div>
-          <div class="k-deger" style="color:var(--yesil)">${para(d.tahsilat)}</div>
-        </div>
-        <div class="kart" onclick="sayfaGit('musteriler')">
-          <div class="k-baslik">Bekleyen Alacak</div>
-          <div class="k-deger" style="color:var(--turuncu)">${para(d.bekleyen_alacak)}</div>
-        </div>
-        <div class="kart" onclick="sayfaGit('gider')">
-          <div class="k-baslik">Toplam Gider</div>
-          <div class="k-deger" style="color:var(--kirmizi)">${para(d.gider_toplam)}</div>
+      <div class="kart" style="margin-bottom:16px">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <div>
+            <label style="font-size:12px;color:var(--ikincil);display:block;margin-bottom:4px">Başlangıç</label>
+            <input type="date" id="ozet-bas" value="${ilkGun}" style="padding:7px 10px;border:1px solid var(--kenar);border-radius:8px;font-size:13px">
+          </div>
+          <div>
+            <label style="font-size:12px;color:var(--ikincil);display:block;margin-bottom:4px">Bitiş</label>
+            <input type="date" id="ozet-bit" value="${sonGun}" style="padding:7px 10px;border:1px solid var(--kenar);border-radius:8px;font-size:13px">
+          </div>
+          <button class="btn btn-ana" style="margin-top:18px" onclick="ozetYenile()">Filtrele</button>
+          <button class="btn btn-gri" style="margin-top:18px" onclick="ozetSifirla()">Sıfırla</button>
         </div>
       </div>
-      <div class="kart-grid kart-grid-4" style="margin-bottom:16px">
-        <div class="kart" onclick="sayfaGit('aylik')">
-          <div class="k-baslik">Net Kâr</div>
-          <div class="k-deger" style="color:${d.net_kar>=0?'var(--yesil)':'var(--kirmizi)'}">${para(d.net_kar)}</div>
-        </div>
-        <div class="kart" onclick="sayfaGit('cek_senet')">
-          <div class="k-baslik">Çek / Senet</div>
-          <div class="k-deger" style="color:var(--mor)">${para(d.cek_toplam)}</div>
-          ${d.en_yakin_cek_vade ? `<div style="font-size:11px;color:var(--ikincil);margin-top:4px">En yakın: ${d.en_yakin_cek_vade}</div>` : ''}
-        </div>
-        <div class="kart" onclick="sayfaGit('taze_beton')">
-          <div class="k-baslik">Taze Beton</div>
-          <div class="k-deger" style="color:var(--ana)">${d.beton_adet} adet</div>
-        </div>
-        <div class="kart" onclick="sayfaGit('celik')">
-          <div class="k-baslik">Çelik / Karot</div>
-          <div class="k-deger" style="color:var(--mor)">${d.celik_adet} / ${d.karot_adet} adet</div>
-        </div>
-      </div>`;
-    document.getElementById('sayfa-icerik').innerHTML = html;
+      <div id="ozet-kartlar"></div>`;
+
+    await ozetYenile();
   },
 
   // MUSTERILER
@@ -690,6 +672,71 @@ function modalKapat() {
   document.getElementById('aktif-modal')?.remove();
 }
 
+// ── GENEL ÖZET FONKSİYONLARI ─────────────────────────────────────────────────
+async function ozetYenile() {
+  const bas = document.getElementById('ozet-bas')?.value || '';
+  const bit = document.getElementById('ozet-bit')?.value || '';
+  const params = bas && bit ? `?bas=${bas}&bit=${bit}` : '';
+  const d = await api('/ozet' + params);
+  if (!d) return;
+
+  const html = `
+    <div class="kart-grid kart-grid-4" style="margin-bottom:12px">
+      <div class="kart" onclick="sayfaGit('taze_beton')" style="cursor:pointer">
+        <div class="k-baslik">Toplam Tutar</div>
+        <div class="k-deger" style="color:var(--ana)">${para(d.toplam_numune)}</div>
+      </div>
+      <div class="kart" onclick="sayfaGit('gelir')" style="cursor:pointer">
+        <div class="k-baslik">Tahsil Edildi</div>
+        <div class="k-deger" style="color:var(--yesil)">${para(d.tahsilat)}</div>
+      </div>
+      <div class="kart" onclick="sayfaGit('musteriler')" style="cursor:pointer">
+        <div class="k-baslik">Bekleyen Alacak</div>
+        <div class="k-deger" style="color:var(--turuncu)">${para(d.bekleyen_alacak)}</div>
+      </div>
+      <div class="kart" onclick="sayfaGit('gider')" style="cursor:pointer">
+        <div class="k-baslik">Toplam Gider</div>
+        <div class="k-deger" style="color:var(--kirmizi)">${para(d.gider_toplam)}</div>
+      </div>
+    </div>
+    <div class="kart-grid kart-grid-4" style="margin-bottom:16px">
+      <div class="kart" onclick="sayfaGit('aylik')" style="cursor:pointer">
+        <div class="k-baslik">Net Kâr</div>
+        <div class="k-deger" style="color:${d.net_kar>=0?'var(--yesil)':'var(--kirmizi)'}">${para(d.net_kar)}</div>
+      </div>
+      <div class="kart" onclick="sayfaGit('cek_senet')" style="cursor:pointer">
+        <div class="k-baslik">Çek / Senet</div>
+        <div class="k-deger" style="color:var(--mor)">${para(d.cek_toplam)}</div>
+        ${d.en_yakin_cek_vade ? `<div style="font-size:11px;color:var(--ikincil);margin-top:4px">En yakın: ${d.en_yakin_cek_vade}</div>` : ''}
+      </div>
+      <div class="kart" onclick="sayfaGit('taze_beton')" style="cursor:pointer">
+        <div class="k-baslik">Taze Beton</div>
+        <div class="k-deger" style="color:var(--ana)">${d.beton_adet} adet</div>
+      </div>
+      <div class="kart" onclick="sayfaGit('celik')" style="cursor:pointer">
+        <div class="k-baslik">Çelik</div>
+        <div class="k-deger" style="color:var(--mor)">${d.celik_adet} adet</div>
+      </div>
+    </div>
+    <div class="kart-grid kart-grid-4" style="margin-bottom:16px">
+      <div class="kart" onclick="sayfaGit('karot')" style="cursor:pointer">
+        <div class="k-baslik">Karot</div>
+        <div class="k-deger" style="color:var(--turuncu)">${d.karot_adet} adet</div>
+      </div>
+    </div>`;
+
+  const el = document.getElementById('ozet-kartlar');
+  if (el) el.innerHTML = html;
+}
+
+function ozetSifirla() {
+  const bugun = new Date();
+  document.getElementById('ozet-bas').value = new Date(bugun.getFullYear(), 0, 1).toISOString().split('T')[0];
+  document.getElementById('ozet-bit').value = bugun.toISOString().split('T')[0];
+  ozetYenile();
+}
+
+// ── GENEL ÖZET FONKSİYONLARI ─────────────────────────────────────────────────
 // ── MÜŞTERİ ──────────────────────────────────────────────────────────────────
 function musteriEkleModal(m = null) {
   modal(m ? 'Müşteri Düzenle' : 'Yeni Müşteri', `
