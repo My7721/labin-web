@@ -15,16 +15,10 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 USE_PG = DATABASE_URL.startswith("postgresql") or DATABASE_URL.startswith("postgres")
 
 if USE_PG:
-    try:
-        import psycopg2
-        import psycopg2.extras
-        PG_LIB = "psycopg2"
-    except ImportError:
-        import pg8000
-        PG_LIB = "pg8000"
+    import pg8000
+    import pg8000.native
 else:
     import sqlite3
-    PG_LIB = None
 
 app = FastAPI(title="Labin Yapi Lab API", version="1.0.0")
 
@@ -43,18 +37,20 @@ security = HTTPBearer()
 # ── Veritabani ────────────────────────────────────────────────────────────────
 def get_db():
     if USE_PG:
-        if PG_LIB == "psycopg2":
-            conn = psycopg2.connect(DATABASE_URL)
-        else:
-            # pg8000 - pure python PostgreSQL driver
-            import urllib.parse
-            r = urllib.parse.urlparse(DATABASE_URL)
-            conn = pg8000.connect(
-                host=r.hostname, port=r.port or 5432,
-                database=r.path.lstrip('/'),
-                user=r.username, password=r.password,
-                ssl_context=False
-            )
+        import urllib.parse
+        r = urllib.parse.urlparse(DATABASE_URL)
+        import ssl as _ssl
+        ssl_ctx = _ssl.create_default_context()
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode = _ssl.CERT_NONE
+        conn = pg8000.dbapi.connect(
+            host=r.hostname,
+            port=r.port or 5432,
+            database=r.path.lstrip('/'),
+            user=r.username,
+            password=r.password,
+            ssl_context=ssl_ctx
+        )
         conn.autocommit = False
         return conn
     else:
@@ -79,7 +75,8 @@ def fetchone_dict(cursor):
         if row is None: return None
         cols = [d[0] for d in cursor.description]
         return dict(zip(cols, row))
-    return cursor.fetchone()
+    r = cursor.fetchone()
+    return dict(r) if r else None
 
 def fetchall_dict(cursor):
     if USE_PG:
