@@ -15,10 +15,16 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 USE_PG = DATABASE_URL.startswith("postgresql") or DATABASE_URL.startswith("postgres")
 
 if USE_PG:
-    import psycopg2
-    import psycopg2.extras
+    try:
+        import psycopg2
+        import psycopg2.extras
+        PG_LIB = "psycopg2"
+    except ImportError:
+        import pg8000
+        PG_LIB = "pg8000"
 else:
     import sqlite3
+    PG_LIB = None
 
 app = FastAPI(title="Labin Yapi Lab API", version="1.0.0")
 
@@ -37,7 +43,18 @@ security = HTTPBearer()
 # ── Veritabani ────────────────────────────────────────────────────────────────
 def get_db():
     if USE_PG:
-        conn = psycopg2.connect(DATABASE_URL)
+        if PG_LIB == "psycopg2":
+            conn = psycopg2.connect(DATABASE_URL)
+        else:
+            # pg8000 - pure python PostgreSQL driver
+            import urllib.parse
+            r = urllib.parse.urlparse(DATABASE_URL)
+            conn = pg8000.connect(
+                host=r.hostname, port=r.port or 5432,
+                database=r.path.lstrip('/'),
+                user=r.username, password=r.password,
+                ssl_context=False
+            )
         conn.autocommit = False
         return conn
     else:
