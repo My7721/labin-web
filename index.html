@@ -176,12 +176,10 @@ tr.beklem td { color: var(--metin); }
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────────
-// Backend adresi - Railway'e deploy edince buraya Railway URL'ini yazin
-const API = window.location.protocol === 'file:'
-  ? 'http://localhost:8000'   // Dosyadan acilinca
-  : window.location.hostname === 'localhost'
-    ? 'http://localhost:8000' // Yerel sunucudan acilinca
-    : '';                     // Railway'de ayni origin
+// Backend adresi - ayni sunucudan geliyorsa bos birak
+const API = (window.location.protocol === 'file:' || window.location.hostname === 'localhost')
+  ? 'http://localhost:8000'
+  : '';  // Railway'de ayni origin, bos birak
 
 let token = localStorage.getItem('token');
 let aktifKullanici = JSON.parse(localStorage.getItem('kullanici') || 'null');
