@@ -185,6 +185,37 @@ tr.beklem td { color: var(--metin); }
 <!-- UYGULAMA -->
 <div id="app" style="display:none">
   <button id="mob-menu-btn" onclick="toggleMenu()">☰</button>
+  <div id="arama-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500" onclick="aramaKapat()"></div>
+  <div id="arama-panel" style="display:none;position:fixed;top:0;left:0;right:0;background:#fff;z-index:501;padding:16px;box-shadow:0 4px 20px rgba(0,0,0,.15)">
+    <div style="display:flex;gap:8px;max-width:800px;margin:0 auto">
+      <input type="text" id="arama-input" placeholder="🔍  Müşteri, numune, YİBF no, belediye ara..."
+        style="flex:1;padding:12px 16px;border:2px solid var(--ana);border-radius:10px;font-size:15px;outline:none"
+        oninput="aramaYap()" onkeydown="if(event.key==='Escape')aramaKapat()">
+      <button class="btn btn-gri" onclick="aramaKapat()">✕</button>
+    </div>
+    <div id="arama-sonuclar" style="max-width:800px;margin:12px auto 0;max-height:60vh;overflow-y:auto"></div>
+  </div>
+  <div id="arama-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500" onclick="aramaKapat()"></div>
+  <div id="arama-panel" style="display:none;position:fixed;top:0;left:0;right:0;background:#fff;z-index:501;padding:16px;box-shadow:0 4px 20px rgba(0,0,0,.15)">
+    <div style="display:flex;gap:8px;max-width:800px;margin:0 auto">
+      <input type="text" id="arama-input" placeholder="🔍  Müşteri, numune, YİBF no, belediye ara..."
+        style="flex:1;padding:12px 16px;border:2px solid var(--ana);border-radius:10px;font-size:15px;outline:none"
+        oninput="aramaYap()" onkeydown="if(event.key==='Escape')aramaKapat()">
+      <button class="btn btn-gri" onclick="aramaKapat()">✕</button>
+    </div>
+    <div id="arama-sonuclar" style="max-width:800px;margin:12px auto 0;max-height:60vh;overflow-y:auto"></div>
+  </div>
+  <!-- Global Arama -->
+  <div id="arama-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500" onclick="aramaKapat()"></div>
+  <div id="arama-panel" style="display:none;position:fixed;top:0;left:0;right:0;background:#fff;z-index:501;padding:16px;box-shadow:0 4px 20px rgba(0,0,0,.15)">
+    <div style="display:flex;gap:8px;max-width:800px;margin:0 auto">
+      <input type="text" id="arama-input" placeholder="🔍  Müşteri, numune, YİBF no, belediye ara..." 
+        style="flex:1;padding:12px 16px;border:2px solid var(--ana);border-radius:10px;font-size:15px;outline:none"
+        oninput="aramaYap()" onkeydown="if(event.key==='Escape')aramaKapat()">
+      <button class="btn btn-gri" onclick="aramaKapat()">✕</button>
+    </div>
+    <div id="arama-sonuclar" style="max-width:800px;margin:12px auto 0;max-height:60vh;overflow-y:auto"></div>
+  </div>
 
   <!-- SIDEBAR -->
   <div id="sidebar">
@@ -193,6 +224,7 @@ tr.beklem td { color: var(--metin); }
     </div>
     <div class="logo" style="font-size:16px;padding-top:4px">Labin Yapı Lab</div>
     <div class="logo-sub">Yönetim Sistemi</div>
+    <button onclick="aramaAc()" style="margin:4px 8px;padding:9px 12px;background:rgba(255,255,255,.1);border:none;border-radius:8px;color:#cbd5e1;font-size:13px;cursor:pointer;text-align:left;width:calc(100% - 16px)">🔍  Ara...</button>
     <nav id="nav"></nav>
     <div class="sidebar-alt">
       <div id="kullanici-bilgi" class="kullanici-bilgi"></div>
@@ -333,6 +365,8 @@ function baslatUygulama() {
     ['gider','📤 Giderler'],
     ['personeller','👥 Personeller'],
     ['kdv','📑 KDV Beyannamesi'],
+    ['musteri_detay','👤 Müşteri Detay'],
+    ['raporlar','📄 Raporlar'],
   ];
   if (isAdmin()) menuler.push(['kullanicilar','🔐 Kullanıcılar']);
 
@@ -636,7 +670,75 @@ const sayfalar = {
     window._musteriler = musteriler;
   },
 
+  // MÜŞTERİ DETAY
+  musteri_detay: async () => {
+    const musteriler = await api('/musteriler');
+    if (!musteriler) return;
+    const ic = document.getElementById('sayfa-icerik');
+    ic.innerHTML = `
+      <div class="sayfa-baslik">Müşteri Detay</div>
+      <div class="kart" style="margin-bottom:16px">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <div style="flex:1;min-width:200px">
+            <label style="font-size:12px;color:var(--ikincil);display:block;margin-bottom:4px">Müşteri Seç</label>
+            <select id="detay-musteri" onchange="musteriDetayYukle()" style="width:100%;padding:9px 12px;border:1px solid var(--kenar);border-radius:8px;font-size:14px">
+              <option value="">-- Müşteri Seçin --</option>
+              ${musteriler.map(m=>`<option value="${m.id}">${m.firma} (${m.tip})</option>`).join('')}
+            </select>
+          </div>
+          <div id="detay-exportler" style="display:none;margin-top:18px">
+            <button class="btn btn-yesil btn-sm" onclick="musteriExcel()">📊 Excel</button>
+            <button class="btn btn-kirmizi btn-sm" onclick="musteriPDF()" style="margin-left:6px">📄 PDF</button>
+          </div>
+        </div>
+      </div>
+      <div id="musteri-detay-icerik"></div>`;
+    window._detayMusteriler = musteriler;
+  },
+
+  // RAPORLAR
+  raporlar: async () => {
+    const ic = document.getElementById('sayfa-icerik');
+    ic.innerHTML = `
+      <div class="sayfa-baslik">Raporlar</div>
+      <div class="kart-grid kart-grid-2" style="margin-bottom:16px">
+        <div class="kart">
+          <div class="k-baslik">📊 Aylık Özet Raporu</div>
+          <p style="font-size:13px;color:var(--ikincil);margin:8px 0 12px">Seçilen yılın aylık gelir, gider ve net kâr raporu</p>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select id="rapor-yil" style="padding:7px 12px;border:1px solid var(--kenar);border-radius:8px;font-size:13px">
+              ${[2023,2024,2025,2026,2027].map(y=>`<option value="${y}" ${y===new Date().getFullYear()?'selected':''}>${y}</option>`).join('')}
+            </select>
+            <button class="btn btn-ana btn-sm" onclick="aylikRaporPDF()">📄 PDF İndir</button>
+            <button class="btn btn-yesil btn-sm" onclick="aylikRaporExcel()">📊 Excel</button>
+          </div>
+        </div>
+        <div class="kart">
+          <div class="k-baslik">📋 Müşteri Borç Ekstresi</div>
+          <p style="font-size:13px;color:var(--ikincil);margin:8px 0 12px">Müşteriye gönderilecek borç/alacak özeti</p>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select id="ekstre-musteri" style="padding:7px 12px;border:1px solid var(--kenar);border-radius:8px;font-size:13px;flex:1;min-width:150px">
+              <option value="">Müşteri seçin...</option>
+            </select>
+            <button class="btn btn-ana btn-sm" onclick="borcEkstrePDF()">📄 Ekstre PDF</button>
+          </div>
+        </div>
+      </div>`;
+    // Musteri listesini doldur
+    const musteriler = await api('/musteriler');
+    if (musteriler) {
+      const sel = document.getElementById('ekstre-musteri');
+      musteriler.forEach(m => {
+        const o = document.createElement('option');
+        o.value = m.id; o.textContent = m.firma;
+        sel.appendChild(o);
+      });
+      window._raporMusteriler = musteriler;
+    }
+  },
+
   // AYLIK
+  aylik: async () => {  // AYLIK
   aylik: async () => {
     const yil = new Date().getFullYear();
     const ic = document.getElementById('sayfa-icerik');
@@ -1354,6 +1456,372 @@ async function kullaniciSil(id) {
 }
 
 // ── BAŞLANGIÇ ─────────────────────────────────────────────────────────────────
+// ── ARAMA FONKSİYONLARI ──────────────────────────────────────────────────────
+function aramaAc() {
+  document.getElementById('arama-overlay').style.display = 'block';
+  document.getElementById('arama-panel').style.display = 'block';
+  document.getElementById('arama-input').focus();
+  document.getElementById('arama-sonuclar').innerHTML = '';
+}
+
+function aramaKapat() {
+  document.getElementById('arama-overlay').style.display = 'none';
+  document.getElementById('arama-panel').style.display = 'none';
+  document.getElementById('arama-input').value = '';
+}
+
+async function aramaYap() {
+  const q = document.getElementById('arama-input').value.trim().toLowerCase();
+  const el = document.getElementById('arama-sonuclar');
+  if (q.length < 2) { el.innerHTML = '<p style="color:var(--ikincil);padding:8px">En az 2 karakter girin</p>'; return; }
+
+  const [musteriler, numuneler] = await Promise.all([api('/musteriler'), api('/numuneler')]);
+  const sonuclar = [];
+
+  // Musteri ara
+  (musteriler||[]).filter(m =>
+    m.firma.toLowerCase().includes(q) || (m.belediye||'').toLowerCase().includes(q) || (m.telefon||'').includes(q)
+  ).forEach(m => sonuclar.push({tip:'Müşteri', baslik: m.firma, alt: `${m.tip} | ${m.belediye||''}`, sayfa:'musteri_detay', id: m.id}));
+
+  // Numune ara
+  (numuneler||[]).filter(n =>
+    (n.yibf||'').toLowerCase().includes(q) ||
+    (n.musteri_adi||'').toLowerCase().includes(q) ||
+    (n.belediye||'').toLowerCase().includes(q) ||
+    (n.blok||'').toLowerCase().includes(q)
+  ).slice(0,15).forEach(n => sonuclar.push({
+    tip: n.tur, baslik: `${n.musteri_adi||'?'} - ${n.yibf||'YİBF yok'}`,
+    alt: `${n.tarih} | ${n.belediye||''} ${n.blok||''} ${n.kat||''} | ${para(n.toplam_kdvli)}`,
+    sayfa: n.tur==='Taze Beton'?'taze_beton':n.tur==='Celik'?'celik':'karot'
+  }));
+
+  if (!sonuclar.length) { el.innerHTML = '<p style="color:var(--ikincil);padding:12px">Sonuç bulunamadı</p>'; return; }
+
+  el.innerHTML = sonuclar.map(s => `
+    <div onclick="aramaKapat();sayfaGit('${s.sayfa}')" style="padding:12px 16px;border-bottom:1px solid var(--kenar);cursor:pointer;border-radius:8px" 
+      onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:11px;padding:2px 8px;background:var(--kenar);border-radius:99px;color:var(--ikincil)">${s.tip}</span>
+        <strong style="font-size:14px">${s.baslik}</strong>
+      </div>
+      <div style="font-size:12px;color:var(--ikincil);margin-top:4px">${s.alt}</div>
+    </div>`).join('');
+}
+
+// Ctrl+K ile arama aç
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); aramaAc(); }
+});
+
+// ── MÜŞTERİ DETAY FONKSİYONLARI ─────────────────────────────────────────────
+async function musteriDetayYukle() {
+  const mid = document.getElementById('detay-musteri')?.value;
+  const el = document.getElementById('musteri-detay-icerik');
+  const exportDiv = document.getElementById('detay-exportler');
+  if (!mid) { el.innerHTML = ''; exportDiv.style.display='none'; return; }
+
+  exportDiv.style.display = 'flex';
+  el.innerHTML = '<p style="color:var(--ikincil);padding:20px">Yükleniyor...</p>';
+
+  const [m, numuneler, gelirler] = await Promise.all([
+    api(`/musteriler/${mid}`),
+    api('/numuneler'),
+    api('/gelirler')
+  ]);
+  if (!m) return;
+
+  const mNum = (numuneler||[]).filter(n => n.musteri_id == mid);
+  const mGel = (gelirler||[]).filter(g => g.musteri_id == mid || g.musteri_adi === m.firma);
+
+  const toplamBorç = mNum.reduce((s,n) => s+(n.toplam_kdvli||0), 0);
+  const toplamTahsilat = mGel.reduce((s,g) => s+(g.tutar||0), 0);
+  const kalan = toplamBorç - toplamTahsilat;
+  const sf = m.fiyatlar?.[m.fiyatlar.length-1] || {};
+
+  window._detayMusteri = m;
+  window._detayNumuneler = mNum;
+  window._detayGelirler = mGel;
+
+  el.innerHTML = `
+    <div class="kart-grid kart-grid-4" style="margin-bottom:12px">
+      <div class="kart"><div class="k-baslik">Toplam Numune Tutarı</div>
+        <div class="k-deger" style="color:var(--ana)">${para(toplamBorç)}</div></div>
+      <div class="kart"><div class="k-baslik">Tahsil Edildi</div>
+        <div class="k-deger" style="color:var(--yesil)">${para(toplamTahsilat)}</div></div>
+      <div class="kart"><div class="k-baslik">Kalan Alacak</div>
+        <div class="k-deger" style="color:${kalan>0?'var(--turuncu)':'var(--yesil)'}">${para(kalan)}</div></div>
+      <div class="kart"><div class="k-baslik">Numune Sayısı</div>
+        <div class="k-deger" style="color:var(--mor)">${mNum.length} adet</div></div>
+    </div>
+
+    <div class="kart" style="margin-bottom:12px">
+      <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:13px">
+        <div><span style="color:var(--ikincil)">Tip:</span> <strong>${m.tip}</strong></div>
+        <div><span style="color:var(--ikincil)">Yetkili:</span> <strong>${m.yetkili||'-'}</strong></div>
+        <div><span style="color:var(--ikincil)">Telefon:</span> <strong>${m.telefon||'-'}</strong></div>
+        <div><span style="color:var(--ikincil)">Belediye:</span> <strong>${m.belediye||'-'}</strong></div>
+        <div><span style="color:var(--ikincil)">Beton Fiyatı:</span> <strong>${para(sf.taze_beton)}</strong></div>
+        <div><span style="color:var(--ikincil)">Çelik:</span> <strong>${para(sf.celik)}</strong></div>
+        <div><span style="color:var(--ikincil)">Karot:</span> <strong>${para(sf.karot)}</strong></div>
+      </div>
+    </div>
+
+    <div class="section-baslik">Numuneler (${mNum.length})</div>
+    <div class="tablo-wrap" style="margin-bottom:12px">
+      <table><thead><tr><th>Tarih</th><th>Tür</th><th>YİBF</th><th>Blok</th><th>Kat</th><th>Adet</th><th>KDVli Tutar</th><th>Durum</th></tr></thead>
+      <tbody>${mNum.map(n=>`<tr class="${n.durum==='Tahsil Edildi'?'tahsil':'beklem'}">
+        <td>${n.tarih}</td><td>${n.tur}</td><td>${n.yibf||''}</td><td>${n.blok||''}</td><td>${n.kat||''}</td>
+        <td>${n.adet}</td><td>${para(n.toplam_kdvli)}</td>
+        <td><span class="badge ${n.durum==='Tahsil Edildi'?'badge-yesil':'badge-turuncu'}">${n.durum}</span></td>
+      </tr>`).join('')}</tbody></table>
+    </div>
+
+    <div class="section-baslik">Tahsilatlar (${mGel.length})</div>
+    <div class="tablo-wrap">
+      <table><thead><tr><th>Tarih</th><th>Açıklama</th><th>Ödeme Türü</th><th>Tutar</th></tr></thead>
+      <tbody>${mGel.map(g=>`<tr>
+        <td>${g.tarih}</td><td>${g.aciklama}</td><td>${g.odeme_turu||''}</td>
+        <td style="color:var(--yesil);font-weight:600">${para(g.tutar)}</td>
+      </tr>`).join('')}
+      ${!mGel.length ? '<tr><td colspan="4" style="color:var(--ikincil);text-align:center;padding:16px">Tahsilat yok</td></tr>' : ''}
+      </tbody></table>
+    </div>`;
+}
+
+function musteriExcel() {
+  const m = window._detayMusteri;
+  const nums = window._detayNumuneler || [];
+  const gels = window._detayGelirler || [];
+  if (!m) return;
+
+  let csv = '﻿'; // BOM for Turkish chars
+  csv += `MÜŞTERİ DETAY RAPORU - ${m.firma}
+`;
+  csv += `Tarih: ${new Date().toLocaleDateString('tr-TR')}
+
+`;
+  csv += 'NUMUNELER
+';
+  csv += 'Tarih,Tür,YİBF,Blok,Kat,Adet,KDVsiz,KDVli,Durum
+';
+  nums.forEach(n => {
+    csv += `${n.tarih},${n.tur},${n.yibf||''},${n.blok||''},${n.kat||''},${n.adet},${n.toplam||0},${n.toplam_kdvli||0},${n.durum}
+`;
+  });
+  csv += '
+TAHSİLATLAR
+';
+  csv += 'Tarih,Açıklama,Ödeme Türü,Tutar
+';
+  gels.forEach(g => { csv += `${g.tarih},${g.aciklama},${g.odeme_turu||''},${g.tutar}
+`; });
+
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${m.firma}_rapor_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+}
+
+function musteriPDF() {
+  const m = window._detayMusteri;
+  if (!m) return;
+  const nums = window._detayNumuneler || [];
+  const gels = window._detayGelirler || [];
+  const toplamBorc = nums.reduce((s,n)=>s+(n.toplam_kdvli||0),0);
+  const toplamTah = gels.reduce((s,g)=>s+(g.tutar||0),0);
+  const kalan = toplamBorc - toplamTah;
+
+  const w = window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>${m.firma} - Rapor</title>
+    <style>
+      body{font-family:'Segoe UI',sans-serif;padding:30px;color:#111;font-size:13px}
+      h1{color:#1e3a5f;border-bottom:3px solid #1e3a5f;padding-bottom:8px}
+      h2{color:#1e3a5f;font-size:15px;margin-top:24px}
+      .ozet{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
+      .kart{border:1px solid #e5e7eb;border-radius:8px;padding:12px;text-align:center}
+      .kart .lbl{font-size:11px;color:#6b7280}
+      .kart .val{font-size:17px;font-weight:700;margin-top:4px}
+      table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
+      th{background:#1e3a5f;color:#fff;padding:8px;text-align:left}
+      td{padding:7px 8px;border-bottom:1px solid #e5e7eb}
+      tr:nth-child(even) td{background:#f8fafc}
+      .tahsil td{color:#057a55}
+      .footer{margin-top:30px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb;padding-top:12px}
+      @media print{button{display:none}}
+    </style></head><body>
+    <button onclick="window.print()" style="margin-bottom:16px;padding:8px 20px;background:#1e3a5f;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px">🖨️ Yazdır / PDF Kaydet</button>
+    <h1>🏗 LABİN YAPI LABORATUVARI</h1>
+    <p><strong>Müşteri:</strong> ${m.firma} &nbsp;|&nbsp; <strong>Tip:</strong> ${m.tip} &nbsp;|&nbsp; <strong>Tarih:</strong> ${new Date().toLocaleDateString('tr-TR')}</p>
+    <div class="ozet">
+      <div class="kart"><div class="lbl">Toplam Tutar</div><div class="val" style="color:#1a56db">${para(toplamBorc)}</div></div>
+      <div class="kart"><div class="lbl">Tahsil Edildi</div><div class="val" style="color:#057a55">${para(toplamTah)}</div></div>
+      <div class="kart"><div class="lbl">Kalan Alacak</div><div class="val" style="color:${kalan>0?'#d97706':'#057a55'}">${para(kalan)}</div></div>
+      <div class="kart"><div class="lbl">Numune Sayısı</div><div class="val" style="color:#6c2bd9">${nums.length}</div></div>
+    </div>
+    <h2>NUMUNELER</h2>
+    <table><thead><tr><th>Tarih</th><th>Tür</th><th>YİBF</th><th>Blok</th><th>Kat</th><th>Adet</th><th>KDVsiz</th><th>KDVli</th><th>Durum</th></tr></thead>
+    <tbody>${nums.map(n=>`<tr class="${n.durum==='Tahsil Edildi'?'tahsil':''}">
+      <td>${n.tarih}</td><td>${n.tur}</td><td>${n.yibf||''}</td><td>${n.blok||''}</td><td>${n.kat||''}</td>
+      <td>${n.adet}</td><td>${para(n.toplam)}</td><td>${para(n.toplam_kdvli)}</td><td>${n.durum}</td>
+    </tr>`).join('')}</tbody></table>
+    <h2>TAHSİLATLAR</h2>
+    <table><thead><tr><th>Tarih</th><th>Açıklama</th><th>Ödeme Türü</th><th>Tutar</th></tr></thead>
+    <tbody>${gels.map(g=>`<tr><td>${g.tarih}</td><td>${g.aciklama}</td><td>${g.odeme_turu||''}</td><td style="color:#057a55;font-weight:600">${para(g.tutar)}</td></tr>`).join('')}
+    ${!gels.length?'<tr><td colspan="4" style="text-align:center;color:#6b7280">Tahsilat yok</td></tr>':''}</tbody></table>
+    <div class="footer">Bu rapor Labin Yapı Laboratuvarı Yönetim Sistemi tarafından oluşturulmuştur. ${new Date().toLocaleString('tr-TR')}</div>
+    </body></html>`);
+  w.document.close();
+}
+
+// ── RAPOR FONKSİYONLARI ───────────────────────────────────────────────────────
+async function aylikRaporPDF() {
+  const yil = document.getElementById('rapor-yil')?.value || new Date().getFullYear();
+  const data = await api('/aylik?yil=' + yil);
+  if (!data) return;
+
+  const topGelir = data.reduce((s,d)=>s+d.gelir,0);
+  const topGider = data.reduce((s,d)=>s+d.gider,0);
+  const topNet = data.reduce((s,d)=>s+d.net,0);
+
+  const w = window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>Aylık Rapor ${yil}</title>
+    <style>
+      body{font-family:'Segoe UI',sans-serif;padding:30px;color:#111;font-size:13px}
+      h1{color:#1e3a5f;border-bottom:3px solid #1e3a5f;padding-bottom:8px}
+      table{width:100%;border-collapse:collapse;margin-top:12px}
+      th{background:#1e3a5f;color:#fff;padding:9px;text-align:left}
+      td{padding:8px 9px;border-bottom:1px solid #e5e7eb}
+      tr:nth-child(even) td{background:#f8fafc}
+      .toplam td{background:#1e3a5f;color:#fff;font-weight:700}
+      .footer{margin-top:24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb;padding-top:10px}
+      @media print{button{display:none}}
+    </style></head><body>
+    <button onclick="window.print()" style="margin-bottom:16px;padding:8px 20px;background:#1e3a5f;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨️ Yazdır / PDF Kaydet</button>
+    <h1>🏗 LABİN YAPI LABORATUVARI — AYLIK DURUM RAPORU ${yil}</h1>
+    <p>Rapor Tarihi: ${new Date().toLocaleDateString('tr-TR')}</p>
+    <table>
+      <thead><tr><th>Ay</th><th>Tahsilat</th><th>Gider</th><th>Net Kâr/Zarar</th></tr></thead>
+      <tbody>
+        ${data.map(d=>`<tr>
+          <td><strong>${d.etiket}</strong></td>
+          <td style="color:#057a55">${para(d.gelir)}</td>
+          <td style="color:#c81e1e">${para(d.gider)}</td>
+          <td style="color:${d.net>=0?'#057a55':'#c81e1e'};font-weight:600">${para(d.net)}</td>
+        </tr>`).join('')}
+        <tr class="toplam">
+          <td>TOPLAM</td>
+          <td>${para(topGelir)}</td>
+          <td>${para(topGider)}</td>
+          <td>${para(topNet)}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="footer">Labin Yapı Laboratuvarı Yönetim Sistemi — ${new Date().toLocaleString('tr-TR')}</div>
+    </body></html>`);
+  w.document.close();
+}
+
+async function aylikRaporExcel() {
+  const yil = document.getElementById('rapor-yil')?.value || new Date().getFullYear();
+  const data = await api('/aylik?yil=' + yil);
+  if (!data) return;
+
+  let csv = '﻿';
+  csv += `LABİN YAPI LABORATUVARI - AYLIK RAPOR ${yil}
+
+`;
+  csv += 'Ay,Tahsilat,Gider,Net Kâr
+';
+  data.forEach(d => { csv += `${d.etiket},${d.gelir},${d.gider},${d.net}
+`; });
+  csv += `TOPLAM,${data.reduce((s,d)=>s+d.gelir,0)},${data.reduce((s,d)=>s+d.gider,0)},${data.reduce((s,d)=>s+d.net,0)}
+`;
+
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `aylik_rapor_${yil}.csv`;
+  a.click();
+}
+
+async function borcEkstrePDF() {
+  const mid = document.getElementById('ekstre-musteri')?.value;
+  if (!mid) { alert('Lütfen müşteri seçin'); return; }
+
+  const musteriler = window._raporMusteriler || [];
+  const m = musteriler.find(x => x.id == mid);
+  const [numuneler, gelirler] = await Promise.all([api('/numuneler'), api('/gelirler')]);
+
+  const mNum = (numuneler||[]).filter(n => n.musteri_id == mid);
+  const mGel = (gelirler||[]).filter(g => g.musteri_id == mid || g.musteri_adi === m?.firma);
+  const toplamBorc = mNum.reduce((s,n)=>s+(n.toplam_kdvli||0),0);
+  const toplamTah = mGel.reduce((s,g)=>s+(g.tutar||0),0);
+  const kalan = toplamBorc - toplamTah;
+
+  const w = window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>Borç Ekstresi - ${m?.firma}</title>
+    <style>
+      body{font-family:'Segoe UI',sans-serif;padding:40px;color:#111;font-size:13px;max-width:800px;margin:0 auto}
+      .baslik{text-align:center;border-bottom:3px solid #1e3a5f;padding-bottom:16px;margin-bottom:24px}
+      .baslik h1{color:#1e3a5f;font-size:22px;margin:0}
+      .baslik p{color:#6b7280;margin:4px 0 0}
+      .bilgi-box{background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:20px}
+      .bilgi-row{display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px}
+      .ozet{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
+      .ozet-kart{border:2px solid #e5e7eb;border-radius:8px;padding:14px;text-align:center}
+      .ozet-kart .lbl{font-size:11px;color:#6b7280;margin-bottom:4px}
+      .ozet-kart .val{font-size:18px;font-weight:700}
+      table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px}
+      th{background:#1e3a5f;color:#fff;padding:8px;text-align:left;font-size:12px}
+      td{padding:7px 8px;border-bottom:1px solid #e5e7eb}
+      .imza{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:48px}
+      .imza-alani{border-top:1px solid #333;padding-top:8px;text-align:center;font-size:12px;color:#374151}
+      .footer{margin-top:24px;font-size:10px;color:#9ca3af;text-align:center;border-top:1px solid #e5e7eb;padding-top:10px}
+      @media print{button{display:none}}
+    </style></head><body>
+    <button onclick="window.print()" style="margin-bottom:20px;padding:8px 20px;background:#1e3a5f;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨️ Yazdır / PDF Kaydet</button>
+    <div class="baslik">
+      <h1>🏗 LABİN YAPI LABORATUVARI</h1>
+      <p>BORÇ EKSTRESİ</p>
+    </div>
+    <div class="bilgi-box">
+      <div class="bilgi-row"><span><strong>Müşteri:</strong> ${m?.firma||''}</span><span><strong>Tarih:</strong> ${new Date().toLocaleDateString('tr-TR')}</span></div>
+      <div class="bilgi-row"><span><strong>Tip:</strong> ${m?.tip||''}</span><span><strong>Belediye:</strong> ${m?.belediye||''}</span></div>
+      ${m?.telefon?`<div class="bilgi-row"><span><strong>Telefon:</strong> ${m.telefon}</span></div>`:''}
+    </div>
+    <div class="ozet">
+      <div class="ozet-kart"><div class="lbl">Toplam Numune Tutarı</div><div class="val" style="color:#1a56db">${para(toplamBorc)}</div></div>
+      <div class="ozet-kart"><div class="lbl">Ödenen Tutar</div><div class="val" style="color:#057a55">${para(toplamTah)}</div></div>
+      <div class="ozet-kart" style="border-color:${kalan>0?'#d97706':'#057a55'}">
+        <div class="lbl">Kalan Borç</div>
+        <div class="val" style="color:${kalan>0?'#d97706':'#057a55'}">${para(kalan)}</div>
+      </div>
+    </div>
+    <strong style="font-size:14px">Numune Listesi</strong>
+    <table><thead><tr><th>Tarih</th><th>Tür</th><th>YİBF</th><th>Blok/Kat</th><th>Adet</th><th>Tutar (KDVli)</th><th>Durum</th></tr></thead>
+    <tbody>${mNum.map(n=>`<tr>
+      <td>${n.tarih}</td><td>${n.tur}</td><td>${n.yibf||''}</td>
+      <td>${n.blok||''} ${n.kat||''}</td><td>${n.adet}</td>
+      <td style="font-weight:600">${para(n.toplam_kdvli)}</td>
+      <td>${n.durum}</td>
+    </tr>`).join('')}</tbody></table>
+    ${mGel.length?`<strong style="font-size:14px">Tahsilat Listesi</strong>
+    <table><thead><tr><th>Tarih</th><th>Açıklama</th><th>Ödeme Türü</th><th>Tutar</th></tr></thead>
+    <tbody>${mGel.map(g=>`<tr><td>${g.tarih}</td><td>${g.aciklama}</td><td>${g.odeme_turu||''}</td>
+      <td style="color:#057a55;font-weight:600">${para(g.tutar)}</td></tr>`).join('')}</tbody></table>`:''}
+    <div class="imza">
+      <div class="imza-alani">Düzenleyen<br><br><br>Labin Yapı Laboratuvarı</div>
+      <div class="imza-alani">Teslim Alan<br><br><br>${m?.firma||''}</div>
+    </div>
+    <div class="footer">Bu belge Labin Yapı Laboratuvarı Yönetim Sistemi tarafından otomatik oluşturulmuştur. ${new Date().toLocaleString('tr-TR')}</div>
+    </body></html>`);
+  w.document.close();
+}
+
 if (token && aktifKullanici) {
   baslatUygulama();
 }
