@@ -15,8 +15,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 USE_PG = DATABASE_URL.startswith("postgresql") or DATABASE_URL.startswith("postgres")
 
 if USE_PG:
-    import pg8000
-    import pg8000.native
+    import pg8000.dbapi as pg8000
 else:
     import sqlite3
 
@@ -39,17 +38,12 @@ def get_db():
     if USE_PG:
         import urllib.parse
         r = urllib.parse.urlparse(DATABASE_URL)
-        import ssl as _ssl
-        ssl_ctx = _ssl.create_default_context()
-        ssl_ctx.check_hostname = False
-        ssl_ctx.verify_mode = _ssl.CERT_NONE
         conn = pg8000.dbapi.connect(
             host=r.hostname,
             port=r.port or 5432,
             database=r.path.lstrip('/'),
             user=r.username,
-            password=r.password,
-            ssl_context=ssl_ctx
+            password=r.password
         )
         conn.autocommit = False
         return conn
@@ -220,8 +214,13 @@ def init_db():
     ]
 
     for sql in tablos:
-        try: c.execute(sql)
-        except Exception as e: print(f"Tablo hatasi: {e}")
+        try:
+            c.execute(sql)
+            conn.commit()
+        except Exception as e:
+            print(f"Tablo hatasi: {e}")
+            try: conn.rollback()
+            except: pass
 
     # Migration - mevcut tablolara eksik kolonlari ekle
     for migration in [
@@ -234,10 +233,12 @@ def init_db():
     # Varsayilan ayar
     try:
         if USE_PG:
-            c.execute("INSERT INTO ayarlar (anahtar, deger) VALUES (%s, %s) ON CONFLICT DO NOTHING", ('son_guncelleme', ''))
+            c.execute("INSERT INTO ayarlar (anahtar, deger) VALUES (%s, %s) ON CONFLICT (anahtar) DO NOTHING", ('son_guncelleme', ''))
         else:
             c.execute("INSERT OR IGNORE INTO ayarlar (anahtar, deger) VALUES (?, ?)", ('son_guncelleme', ''))
-    except: pass
+        conn.commit()
+    except Exception:
+        conn.rollback()
 
     # Admin kullanici
     admin_hash = hashlib.sha256("101112da".encode()).hexdigest()
@@ -248,9 +249,10 @@ def init_db():
         else:
             c.execute("INSERT OR IGNORE INTO kullanicilar (kullanici_adi,sifre_hash,ad,rol) VALUES (?,?,?,?)",
                       ("labin", admin_hash, "Muhammed Yardimci", "admin"))
-    except: pass
+        conn.commit()
+    except Exception:
+        conn.rollback()
 
-    conn.commit()
     conn.close()
 
 init_db()
