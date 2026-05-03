@@ -469,24 +469,36 @@ const sayfalar = {
   // GENEL ÖZET
   ozet: async () => {
     const bugun = new Date();
-    const ilkGun = new Date(bugun.getFullYear(), bugun.getMonth(), 1).toISOString().split('T')[0];
-    const sonGun = bugun.toISOString().split('T')[0];
+    const bugunStr = bugun.toISOString().split('T')[0];
+    const ayBas = new Date(bugun.getFullYear(), bugun.getMonth(), 1).toISOString().split('T')[0];
+    const yilBas = new Date(bugun.getFullYear(), 0, 1).toISOString().split('T')[0];
 
     const ic = document.getElementById('sayfa-icerik');
     ic.innerHTML = `
       <div class="sayfa-baslik">Genel Özet</div>
       <div class="kart" style="margin-bottom:16px">
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+          <button class="btn btn-sm" id="hizli-bugun" onclick="hizliFiltre('bugun')"
+            style="background:#f1f5f9;color:var(--metin);border:1px solid var(--kenar)">Bugün</button>
+          <button class="btn btn-sm" id="hizli-ay" onclick="hizliFiltre('ay')"
+            style="background:var(--ana);color:#fff">Bu Ay</button>
+          <button class="btn btn-sm" id="hizli-yil" onclick="hizliFiltre('yil')"
+            style="background:#f1f5f9;color:var(--metin);border:1px solid var(--kenar)">Bu Yıl</button>
+          <button class="btn btn-sm" id="hizli-tumü" onclick="hizliFiltre('tumu')"
+            style="background:#f1f5f9;color:var(--metin);border:1px solid var(--kenar)">Tümü</button>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
           <div>
-            <label style="font-size:12px;color:var(--ikincil);display:block;margin-bottom:4px">Başlangıç</label>
-            <input type="date" id="ozet-bas" value="${ilkGun}" style="padding:7px 10px;border:1px solid var(--kenar);border-radius:8px;font-size:13px">
+            <label style="font-size:11px;color:var(--ikincil);display:block;margin-bottom:3px">Başlangıç</label>
+            <input type="date" id="ozet-bas" value="${ayBas}"
+              style="padding:7px 10px;border:1px solid var(--kenar);border-radius:8px;font-size:13px">
           </div>
           <div>
-            <label style="font-size:12px;color:var(--ikincil);display:block;margin-bottom:4px">Bitiş</label>
-            <input type="date" id="ozet-bit" value="${sonGun}" style="padding:7px 10px;border:1px solid var(--kenar);border-radius:8px;font-size:13px">
+            <label style="font-size:11px;color:var(--ikincil);display:block;margin-bottom:3px">Bitiş</label>
+            <input type="date" id="ozet-bit" value="${bugunStr}"
+              style="padding:7px 10px;border:1px solid var(--kenar);border-radius:8px;font-size:13px">
           </div>
-          <button class="btn btn-ana" style="margin-top:18px" onclick="ozetYenile()">Filtrele</button>
-          <button class="btn btn-gri" style="margin-top:18px" onclick="ozetSifirla()">Sıfırla</button>
+          <button class="btn btn-ana" onclick="ozetYenile()">Filtrele</button>
         </div>
       </div>
       <div id="ozet-kartlar"></div>`;
