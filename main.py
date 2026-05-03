@@ -33,6 +33,11 @@ def get_db():
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
+def son_guncelleme_guncelle(conn):
+    """Her veri degisikliginde son guncelleme tarihini kaydet"""
+    simdi = datetime.now().strftime("%d.%m.%Y %H:%M")
+    conn.execute("INSERT OR REPLACE INTO ayarlar (anahtar, deger) VALUES ('son_guncelleme', ?)", (simdi,))
+
 def init_db():
     conn = get_db()
     c = conn.cursor()
@@ -169,6 +174,13 @@ def init_db():
         plaka TEXT NOT NULL,
         model TEXT
     )""")
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS ayarlar (
+        anahtar TEXT PRIMARY KEY,
+        deger TEXT
+    )""")
+    c.execute("INSERT OR IGNORE INTO ayarlar (anahtar, deger) VALUES ('son_guncelleme', '')")
 
     # Admin kullanici olustur
     admin_hash = hashlib.sha256("101112da".encode()).hexdigest()
@@ -455,6 +467,7 @@ def numune_ekle(data: NumuneModel, token=Depends(admin_kontrol)):
          data.birim_fiyat,data.kdv_oran,data.kdv_tutar,data.toplam,data.toplam_kdvli,
          data.durum,data.not_)
     )
+    son_guncelleme_guncelle(conn)
     conn.commit(); conn.close()
     return {"id": cur.lastrowid}
 
@@ -500,6 +513,7 @@ def gelir_ekle(data: GelirModel, token=Depends(admin_kontrol)):
         "INSERT INTO gelirler (tarih,aciklama,musteri_id,musteri_adi,tutar,odeme_turu) VALUES (?,?,?,?,?,?)",
         (data.tarih,data.aciklama,data.musteri_id,data.musteri_adi,data.tutar,data.odeme_turu)
     )
+    son_guncelleme_guncelle(conn)
     conn.commit(); conn.close()
     return {"id": cur.lastrowid}
 
@@ -525,6 +539,7 @@ def gider_ekle(data: GiderModel, token=Depends(admin_kontrol)):
         "INSERT INTO giderler (tarih,kategori,aciklama,arac,tutar) VALUES (?,?,?,?,?)",
         (data.tarih,data.kategori,data.aciklama,data.arac,data.tutar)
     )
+    son_guncelleme_guncelle(conn)
     conn.commit(); conn.close()
     return {"id": cur.lastrowid}
 
@@ -715,6 +730,14 @@ def aylik(yil: int = None, token=Depends(token_dogrula)):
         })
     conn.close()
     return result
+
+# Son guncelleme tarihi
+@app.get("/son-guncelleme")
+def son_guncelleme_get(token=Depends(token_dogrula)):
+    conn = get_db()
+    row = conn.execute("SELECT deger FROM ayarlar WHERE anahtar='son_guncelleme'").fetchone()
+    conn.close()
+    return {"son_guncelleme": row["deger"] if row and row["deger"] else "Henüz veri girilmedi"}
 
 # PWA Manifest
 @app.get("/manifest.json")
