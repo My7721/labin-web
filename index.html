@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Labin Yapı Lab</title>
+<meta name="application-name" content="Labin Yapı Lab">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Labin Lab">
+<meta name="theme-color" content="#1e3a5f">
+<link rel="manifest" href="/manifest.json">
 <style>
 :root {
   --ana: #1a56db; --yesil: #057a55; --kirmizi: #c81e1e;
@@ -1142,6 +1148,11 @@ async function kullaniciSil(id) {
 // ── BAŞLANGIÇ ─────────────────────────────────────────────────────────────────
 if (token && aktifKullanici) {
   baslatUygulama();
+}
+
+// PWA Service Worker kayit
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 </script>
 </body>
