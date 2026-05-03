@@ -1568,10 +1568,12 @@ async function musteriDetayYukle() {
 
     <div class="section-baslik">Numuneler (${mNum.length})</div>
     <div class="tablo-wrap" style="margin-bottom:12px">
-      <table><thead><tr><th>Tarih</th><th>Tür</th><th>YİBF</th><th>Blok</th><th>Kat</th><th>Adet</th><th>KDVli Tutar</th><th>Durum</th></tr></thead>
+      <table><thead><tr><th>Tarih</th><th>Tür</th><th>YİBF</th><th>İş Adı</th><th>Blok</th><th>Kat</th><th>Adet</th><th>Birim Fiyat</th><th>Toplam (KDV Dahil)</th><th>Durum</th></tr></thead>
       <tbody>${mNum.map(n=>`<tr class="${n.durum==='Tahsil Edildi'?'tahsil':'beklem'}">
-        <td>${n.tarih}</td><td>${n.tur}</td><td>${n.yibf||''}</td><td>${n.blok||''}</td><td>${n.kat||''}</td>
-        <td>${n.adet}</td><td>${para(n.toplam_kdvli)}</td>
+        <td>${n.tarih}</td><td>${n.tur}</td><td>${n.yibf||''}</td>
+        <td>${n.is_adi||''}</td><td>${n.blok||''}</td><td>${n.kat||''}</td>
+        <td>${n.adet}</td><td>${para(n.birim_fiyat)}</td>
+        <td style="font-weight:600">${para(n.toplam_kdvli)}</td>
         <td><span class="badge ${n.durum==='Tahsil Edildi'?'badge-yesil':'badge-turuncu'}">${n.durum}</span></td>
       </tr>`).join('')}</tbody></table>
     </div>
@@ -1796,10 +1798,12 @@ async function borcEkstrePDF() {
       </div>
     </div>
     <strong style="font-size:14px">Numune Listesi</strong>
-    <table><thead><tr><th>Tarih</th><th>Tür</th><th>YİBF</th><th>Blok/Kat</th><th>Adet</th><th>Tutar (KDVli)</th><th>Durum</th></tr></thead>
+    <table><thead><tr><th>Tarih</th><th>Tür</th><th>YİBF</th><th>İş Adı</th><th>Blok/Kat</th><th>Adet</th><th>Birim Fiyat</th><th>Toplam (KDV Dahil)</th><th>Durum</th></tr></thead>
     <tbody>${mNum.map(n=>`<tr>
       <td>${n.tarih}</td><td>${n.tur}</td><td>${n.yibf||''}</td>
+      <td>${n.is_adi||''}</td>
       <td>${n.blok||''} ${n.kat||''}</td><td>${n.adet}</td>
+      <td>${para(n.birim_fiyat)}</td>
       <td style="font-weight:600">${para(n.toplam_kdvli)}</td>
       <td>${n.durum}</td>
     </tr>`).join('')}</tbody></table>
