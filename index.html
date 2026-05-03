@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Labin Yapı Lab</title>
+<style>
+:root {
+  --ana: #1a56db; --yesil: #057a55; --kirmizi: #c81e1e;
+  --turuncu: #d97706; --mor: #6c2bd9;
+  --bg: #f3f4f6; --kart: #fff; --metin: #111827;
+  --ikincil: #6b7280; --kenar: #e5e7eb;
+  --sidebar: #1e3a5f; --sidebar2: #2d5280;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--metin); }
+#app { display: flex; min-height: 100vh; }
+/* SIDEBAR */
+#sidebar {
+  width: 220px; background: var(--sidebar); color: #fff;
+  display: flex; flex-direction: column; min-height: 100vh;
+  position: fixed; left: 0; top: 0; bottom: 0; z-index: 100;
+  transition: transform .3s;
+}
+#sidebar .logo { padding: 24px 16px 8px; font-size: 20px; font-weight: 700; }
+#sidebar .logo-sub { padding: 0 16px 16px; font-size: 12px; color: #94a3b8; }
+#sidebar nav a {
+  display: block; padding: 10px 16px; color: #cbd5e1; text-decoration: none;
+  font-size: 14px; border-radius: 8px; margin: 2px 8px; transition: background .2s;
+}
+#sidebar nav a:hover, #sidebar nav a.aktif { background: var(--sidebar2); color: #fff; }
+#sidebar .sidebar-alt {
+  margin-top: auto; padding: 8px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+#sidebar .sidebar-alt a, #sidebar .sidebar-alt button {
+  display: block; width: 100%; padding: 8px 12px;
+  color: #94a3b8; text-decoration: none; font-size: 12px;
+  background: transparent; border: none; cursor: pointer;
+  border-radius: 6px; text-align: left;
+}
+#sidebar .sidebar-alt a:hover, #sidebar .sidebar-alt button:hover { background: var(--sidebar2); color: #fff; }
+#sidebar .cikis-btn {
+  background: #7f1d1d !important; color: #fca5a5 !important;
+  font-weight: 600 !important;
+}
+#sidebar .kullanici-bilgi {
+  padding: 8px 12px; font-size: 11px; color: #64748b;
+  border-top: 1px solid #334e6e; margin-top: 4px;
+}
+/* ANA ICERIK */
+#icerik { margin-left: 220px; flex: 1; padding: 24px; min-height: 100vh; }
+/* KARTLAR */
+.kart-grid { display: grid; gap: 12px; margin-bottom: 16px; }
+.kart-grid-4 { grid-template-columns: repeat(4, 1fr); }
+.kart-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.kart-grid-2 { grid-template-columns: repeat(2, 1fr); }
+@media(max-width:900px) { .kart-grid-4,.kart-grid-3 { grid-template-columns: repeat(2,1fr); } }
+@media(max-width:600px) { .kart-grid-4,.kart-grid-3,.kart-grid-2 { grid-template-columns: 1fr; } #sidebar{transform:translateX(-100%);} #icerik{margin-left:0;} #mob-menu-btn{display:flex!important;} }
+.kart {
+  background: var(--kart); border-radius: 12px;
+  border: 1px solid var(--kenar); padding: 16px;
+  cursor: pointer; transition: box-shadow .2s;
+}
+.kart:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+.kart .k-baslik { font-size: 12px; color: var(--ikincil); margin-bottom: 4px; }
+.kart .k-deger { font-size: 20px; font-weight: 700; }
+/* TABLO */
+.tablo-wrap { background: var(--kart); border-radius: 12px; border: 1px solid var(--kenar); overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { background: #f8fafc; padding: 10px 12px; text-align: left; font-weight: 600; white-space: nowrap; border-bottom: 1px solid var(--kenar); }
+td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
+tr:hover td { background: #f8fafc; }
+tr.tahsil td { color: var(--yesil); background: #f0fdf4; }
+tr.beklem td { color: var(--metin); }
+/* BUTONLAR */
+.btn { padding: 8px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: opacity .2s; }
+.btn:hover { opacity: .85; }
+.btn-ana { background: var(--ana); color: #fff; }
+.btn-yesil { background: var(--yesil); color: #fff; }
+.btn-kirmizi { background: var(--kirmizi); color: #fff; }
+.btn-gri { background: #374151; color: #fff; }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+/* TOOLBAR */
+.toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.toolbar input, .toolbar select {
+  padding: 7px 12px; border-radius: 8px; border: 1px solid var(--kenar);
+  font-size: 13px; outline: none;
+}
+/* FORM */
+.form-grup { margin-bottom: 12px; }
+.form-grup label { display: block; font-size: 13px; color: var(--ikincil); margin-bottom: 4px; }
+.form-grup input, .form-grup select, .form-grup textarea {
+  width: 100%; padding: 9px 12px; border: 1px solid var(--kenar);
+  border-radius: 8px; font-size: 14px; font-family: inherit; outline: none;
+}
+.form-grup input:focus, .form-grup select:focus { border-color: var(--ana); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+/* MODAL */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.5);
+  display: flex; align-items: center; justify-content: center; z-index: 1000;
+}
+.modal {
+  background: #fff; border-radius: 16px; padding: 28px;
+  width: 90%; max-width: 560px; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+}
+.modal h3 { font-size: 18px; margin-bottom: 20px; }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+/* LOGIN */
+#login-screen {
+  min-height: 100vh; background: var(--sidebar);
+  display: flex; align-items: center; justify-content: center;
+}
+.login-kart {
+  background: #162d4a; border-radius: 16px; padding: 40px;
+  width: 380px; text-align: center;
+}
+.login-kart .logo { font-size: 28px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+.login-kart .logo-sub { color: #94a3b8; font-size: 13px; margin-bottom: 28px; }
+.login-kart input {
+  width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #334155;
+  background: #1e293b; color: #fff; font-size: 14px; margin-bottom: 12px; outline: none;
+}
+.login-kart button {
+  width: 100%; padding: 13px; background: var(--ana); color: #fff;
+  border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer;
+}
+.login-kart .hata { color: #ef4444; font-size: 13px; margin-top: 8px; }
+/* OZET METINLER */
+.sayfa-baslik { font-size: 24px; font-weight: 700; margin-bottom: 20px; }
+.section-baslik { font-size: 15px; font-weight: 600; margin: 16px 0 8px; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+.badge-yesil { background: #dcfce7; color: var(--yesil); }
+.badge-kirmizi { background: #fee2e2; color: var(--kirmizi); }
+.badge-turuncu { background: #fef3c7; color: var(--turuncu); }
+#mob-menu-btn { display: none; position: fixed; top: 12px; left: 12px; z-index: 200; background: var(--sidebar); color: #fff; border: none; border-radius: 8px; padding: 8px 12px; font-size: 20px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<!-- GİRİŞ EKRANI -->
+<div id="login-screen">
+  <div class="login-kart">
+    <div class="logo">🏗 Labin Yapı Lab</div>
+    <div class="logo-sub">Yönetim Sistemi</div>
+    <input type="text" id="giris-id" placeholder="Kullanıcı ID" autocomplete="username">
+    <input type="password" id="giris-sifre" placeholder="Şifre" autocomplete="current-password">
+    <button onclick="girisYap()">Giriş Yap</button>
+    <div class="hata" id="giris-hata"></div>
+  </div>
+</div>
+
+<!-- UYGULAMA -->
+<div id="app" style="display:none">
+  <button id="mob-menu-btn" onclick="toggleMenu()">☰</button>
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="logo">🏗 Labin Yapı Lab</div>
+    <div class="logo-sub">Yönetim Sistemi</div>
+    <nav id="nav"></nav>
+    <div class="sidebar-alt">
+      <div id="kullanici-bilgi" class="kullanici-bilgi"></div>
+      <button class="cikis-btn" onclick="cikisYap()">🚪 Çıkış Yap</button>
+    </div>
+  </div>
+
+  <!-- ICERIK -->
+  <div id="icerik">
+    <div id="sayfa-icerik"></div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+// Backend adresi - Railway'e deploy edince buraya Railway URL'ini yazin
+const API = window.location.protocol === 'file:'
+  ? 'http://localhost:8000'   // Dosyadan acilinca
+  : window.location.hostname === 'localhost'
+    ? 'http://localhost:8000' // Yerel sunucudan acilinca
+    : '';                     // Railway'de ayni origin
+
+let token = localStorage.getItem('token');
+let aktifKullanici = JSON.parse(localStorage.getItem('kullanici') || 'null');
+let aktifSayfa = 'ozet';
+
+// ── API HELPER ────────────────────────────────────────────────────────────────
+async function api(yol, method = 'GET', body = null) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(API + yol, opts);
+  if (r.status === 401) { cikisYap(); return null; }
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    alert(err.detail || 'Bir hata oluştu');
+    return null;
+  }
+  return r.json();
+}
+
+const para = n => new Intl.NumberFormat('tr-TR', {minimumFractionDigits:2}).format(n||0) + ' ₺';
+const isAdmin = () => aktifKullanici?.rol === 'admin';
+const tarihBugun = () => new Date().toISOString().split('T')[0];
+
+// ── GİRİŞ / ÇIKIŞ ────────────────────────────────────────────────────────────
+async function girisYap() {
+  const ku = document.getElementById('giris-id').value.trim();
+  const sf = document.getElementById('giris-sifre').value.trim();
+  const r = await fetch(API + '/giris', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({kullanici_adi: ku, sifre: sf})
+  });
+  if (!r.ok) {
+    document.getElementById('giris-hata').textContent = 'Kullanıcı adı veya şifre yanlış!';
+    return;
+  }
+  const d = await r.json();
+  token = d.token;
+  aktifKullanici = d.kullanici;
+  localStorage.setItem('token', token);
+  localStorage.setItem('kullanici', JSON.stringify(aktifKullanici));
+  baslatUygulama();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') girisYap();
+});
+
+function cikisYap() {
+  if (!confirm('Çıkış yapmak istiyor musunuz?')) return;
+  localStorage.clear();
+  location.reload();
+}
+
+function toggleMenu() {
+  const s = document.getElementById('sidebar');
+  s.style.transform = s.style.transform === 'translateX(0px)' ? '' : 'translateX(0px)';
+}
+
+// ── UYGULAMA BAŞLAT ───────────────────────────────────────────────────────────
+function baslatUygulama() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+
+  const kb = document.getElementById('kullanici-bilgi');
+  kb.innerHTML = `<strong>${aktifKullanici.ad}</strong><br>[${aktifKullanici.rol.toUpperCase()}]`;
+
+  const menuler = [
+    ['ozet','📊 Genel Özet'],
+    ['aylik','📈 Aylık Durum'],
+    ['beton_prog','🏗 Beton Programı'],
+    ['musteriler','🏢 Müşteriler'],
+    ['taze_beton','🧪 Taze Beton'],
+    ['celik','⚙️ Çelik Numunesi'],
+    ['karot','🪨 Karot Numunesi'],
+    ['gelir','💰 Gelir / Tahsilat'],
+    ['cek_senet','📋 Çek / Senet'],
+    ['gider','📤 Giderler'],
+    ['personeller','👥 Personeller'],
+    ['kdv','📑 KDV Beyannamesi'],
+  ];
+  if (isAdmin()) menuler.push(['kullanicilar','🔐 Kullanıcılar']);
+
+  const nav = document.getElementById('nav');
+  nav.innerHTML = menuler.map(([id,label]) =>
+    `<a href="#" onclick="sayfaGit('${id}');return false" id="menu-${id}">${label}</a>`
+  ).join('');
+
+  sayfaGit('ozet');
+}
+
+async function sayfaGit(id) {
+  aktifSayfa = id;
+  document.querySelectorAll('#nav a').forEach(a => a.classList.remove('aktif'));
+  const el = document.getElementById('menu-'+id);
+  if (el) el.classList.add('aktif');
+  const ic = document.getElementById('sayfa-icerik');
+  ic.innerHTML = '<p style="color:var(--ikincil);padding:40px">Yükleniyor...</p>';
+  await sayfalar[id]?.();
+}
+
+// ── SAYFALAR ──────────────────────────────────────────────────────────────────
+const sayfalar = {
+
+  // GENEL ÖZET
+  ozet: async () => {
+    const d = await api('/ozet');
+    if (!d) return;
+    const html = `
+      <div class="sayfa-baslik">Genel Özet</div>
+      <div class="kart-grid kart-grid-4" style="margin-bottom:12px">
+        <div class="kart" onclick="sayfaGit('taze_beton')">
+          <div class="k-baslik">Toplam Tutar</div>
+          <div class="k-deger" style="color:var(--ana)">${para(d.toplam_numune)}</div>
+        </div>
+        <div class="kart" onclick="sayfaGit('gelir')">
+          <div class="k-baslik">Tahsil Edildi</div>
+          <div class="k-deger" style="color:var(--yesil)">${para(d.tahsilat)}</div>
+        </div>
+        <div class="kart" onclick="sayfaGit('musteriler')">
+          <div class="k-baslik">Bekleyen Alacak</div>
+          <div class="k-deger" style="color:var(--turuncu)">${para(d.bekleyen_alacak)}</div>
+        </div>
+        <div class="kart" onclick="sayfaGit('gider')">
+          <div class="k-baslik">Toplam Gider</div>
+          <div class="k-deger" style="color:var(--kirmizi)">${para(d.gider_toplam)}</div>
+        </div>
+      </div>
+      <div class="kart-grid kart-grid-4" style="margin-bottom:16px">
+        <div class="kart" onclick="sayfaGit('aylik')">
+          <div class="k-baslik">Net Kâr</div>
+          <div class="k-deger" style="color:${d.net_kar>=0?'var(--yesil)':'var(--kirmizi)'}">${para(d.net_kar)}</div>
+        </div>
+        <div class="kart" onclick="sayfaGit('cek_senet')">
+          <div class="k-baslik">Çek / Senet</div>
+          <div class="k-deger" style="color:var(--mor)">${para(d.cek_toplam)}</div>
+          ${d.en_yakin_cek_vade ? `<div style="font-size:11px;color:var(--ikincil);margin-top:4px">En yakın: ${d.en_yakin_cek_vade}</div>` : ''}
+        </div>
+        <div class="kart" onclick="sayfaGit('taze_beton')">
+          <div class="k-baslik">Taze Beton</div>
+          <div class="k-deger" style="color:var(--ana)">${d.beton_adet} adet</div>
+        </div>
+        <div class="kart" onclick="sayfaGit('celik')">
+          <div class="k-baslik">Çelik / Karot</div>
+          <div class="k-deger" style="color:var(--mor)">${d.celik_adet} / ${d.karot_adet} adet</div>
+        </div>
+      </div>`;
+    document.getElementById('sayfa-icerik').innerHTML = html;
+  },
+
+  // MUSTERILER
+  musteriler: async () => {
+    const musteriler = await api('/musteriler');
+    if (!musteriler) return;
+    let html = `
+      <div class="sayfa-baslik">Müşteriler</div>
+      <div class="toolbar">
+        ${isAdmin() ? '<button class="btn btn-ana" onclick="musteriEkleModal()">+ Yeni Müşteri</button>' : ''}
+        <input type="text" id="ara-musteri" placeholder="Ara..." oninput="musteriAra()" style="width:220px">
+        <select onchange="musteriTipFiltre(this.value)" style="width:160px">
+          <option value="">Tümü</option>
+          <option value="Muteahhit">Müteahhit</option>
+          <option value="Beton Firmasi">Beton Firması</option>
+        </select>
+      </div>
+      <div class="tablo-wrap">
+        <table id="musteri-tablo">
+          <thead><tr>
+            <th>ID</th><th>Tip</th><th>Firma / Ad</th><th>Yetkili</th>
+            <th>Telefon</th><th>Belediye</th>
+            <th>B.Fiyatı</th><th>Ç.Fiyatı</th><th>K.Fiyatı</th>
+            ${isAdmin() ? '<th>İşlem</th>' : ''}
+          </tr></thead>
+          <tbody id="musteri-tbody">`;
+    for (const m of musteriler) {
+      const sf = m.son_fiyat || {};
+      html += `<tr data-tip="${m.tip}" data-firma="${m.firma.toLowerCase()}">
+        <td>${m.id}</td>
+        <td><span class="badge ${m.tip==='Muteahhit'?'badge-turuncu':'badge-yesil'}">${m.tip}</span></td>
+        <td><strong>${m.firma}</strong></td>
+        <td>${m.yetkili||''}</td><td>${m.telefon||''}</td><td>${m.belediye||''}</td>
+        <td>${para(sf.taze_beton)}</td><td>${para(sf.celik)}</td><td>${para(sf.karot)}</td>
+        ${isAdmin() ? `<td><button class="btn btn-gri btn-sm" onclick="musteriDuzenle(${m.id})">Düzenle</button>
+        <button class="btn btn-kirmizi btn-sm" onclick="musteriSil(${m.id})" style="margin-left:4px">Sil</button></td>` : ''}
+      </tr>`;
+    }
+    html += '</tbody></table></div>';
+    document.getElementById('sayfa-icerik').innerHTML = html;
+    window._musteriler = musteriler;
+  },
+
+  // NUMUNELER (genel)
+  _numune_sayfa: async (tur, baslik) => {
+    const numuneler = await api(`/numuneler?tur=${encodeURIComponent(tur)}`);
+    const musteriler = await api('/musteriler');
+    if (!numuneler) return;
+    const sutunlar = tur === 'Taze Beton'
+      ? ['ID','Tarih','Müşteri','YİBF','Belediye','Blok','Kat','M³','B.Sınıfı','Adet','Birim','KDV','KDVsiz','KDVli','Durum']
+      : tur === 'Celik'
+      ? ['ID','Tarih','Müşteri','YİBF','Belediye','Blok','Kat','Çaplar','Adet','Birim','KDV','KDVsiz','KDVli','Durum']
+      : ['ID','Tarih','Müşteri','YİBF','Belediye','Blok','Kat','Adet','Birim','KDV','KDVsiz','KDVli','Durum'];
+
+    let html = `
+      <div class="sayfa-baslik">${baslik} Numuneleri</div>
+      <div class="toolbar">
+        ${isAdmin() ? `<button class="btn btn-ana" onclick="numuneEkleModal('${tur}')">+ Yeni Numune</button>` : ''}
+        ${isAdmin() ? `<button class="btn btn-yesil btn-sm" onclick="durumDegistir('numune','Tahsil Edildi')">✓ Tahsil Edildi</button>` : ''}
+        ${isAdmin() ? `<button class="btn btn-gri btn-sm" onclick="durumDegistir('numune','Beklemede')">Beklemede</button>` : ''}
+        <span id="numune-toplam" style="margin-left:auto;font-weight:700;color:var(--ana)"></span>
+      </div>
+      <div class="tablo-wrap">
+        <table>
+          <thead><tr>${sutunlar.map(s=>`<th>${s}</th>`).join('')}${isAdmin()?'<th>İşlem</th>':''}</tr></thead>
+          <tbody>`;
+
+    let toplamKdvli = 0; let toplamAdet = 0;
+    for (const n of numuneler) {
+      toplamKdvli += n.toplam_kdvli || 0;
+      toplamAdet += n.adet || 0;
+      const stl = n.durum === 'Tahsil Edildi' ? 'tahsil' : 'beklem';
+      const caplar = n.caplar ? n.caplar.split(',').map(c=>`φ${c.trim()}`).join(', ') : '';
+      let satirHucreler = `<td>${n.id}</td><td>${n.tarih||''}</td><td>${n.musteri_adi||''}</td>
+        <td>${n.yibf||''}</td><td>${n.belediye||''}</td><td>${n.blok||''}</td><td>${n.kat||''}</td>`;
+      if (tur === 'Taze Beton') satirHucreler += `<td>${n.m3||''}</td><td>${n.beton_sinifi||''}</td>`;
+      if (tur === 'Celik') satirHucreler += `<td>${caplar}</td>`;
+      satirHucreler += `<td>${n.adet}</td><td>${para(n.birim_fiyat)}</td>
+        <td>%${n.kdv_oran||0}</td><td>${para(n.toplam)}</td><td>${para(n.toplam_kdvli)}</td>
+        <td><span class="badge ${n.durum==='Tahsil Edildi'?'badge-yesil':'badge-turuncu'}">${n.durum}</span></td>`;
+      html += `<tr class="${stl}" data-id="${n.id}">
+        <td><input type="checkbox" class="numune-cb" data-id="${n.id}"></td>
+        ${satirHucreler}
+        ${isAdmin() ? `<td><button class="btn btn-kirmizi btn-sm" onclick="numuneSil(${n.id})">Sil</button></td>` : ''}
+      </tr>`.replace('<td><input','<td style="width:32px"><input');
+    }
+    html += `</tbody></table></div>`;
+    document.getElementById('sayfa-icerik').innerHTML = html;
+    document.getElementById('numune-toplam').textContent =
+      `${toplamAdet} adet | KDVli: ${para(toplamKdvli)}`;
+    window._musteriler = musteriler;
+    window._aktifNumuneBaslik = baslik;
+    window._aktifNumuneTur = tur;
+  },
+
+  taze_beton: () => sayfalar._numune_sayfa('Taze Beton','Taze Beton'),
+  celik: () => sayfalar._numune_sayfa('Celik','Çelik'),
+  karot: () => sayfalar._numune_sayfa('Karot','Karot'),
+
+  // GELİR
+  gelir: async () => {
+    const gelirler = await api('/gelirler');
+    const musteriler = await api('/musteriler');
+    if (!gelirler) return;
+    let toplam = 0;
+    let html = `
+      <div class="sayfa-baslik">Gelir / Tahsilat</div>
+      <div class="toolbar">
+        ${isAdmin() ? '<button class="btn btn-ana" onclick="gelirEkleModal()">+ Tahsilat Ekle</button>' : ''}
+        <span id="gelir-toplam" style="margin-left:auto;font-weight:700;color:var(--yesil)"></span>
+      </div>
+      <div class="tablo-wrap"><table>
+        <thead><tr><th>Tarih</th><th>Açıklama</th><th>Müşteri</th><th>Ödeme Türü</th><th>Tutar</th>${isAdmin()?'<th>İşlem</th>':''}</tr></thead>
+        <tbody>`;
+    for (const g of gelirler) {
+      toplam += g.tutar || 0;
+      html += `<tr><td>${g.tarih}</td><td>${g.aciklama}</td><td>${g.musteri_adi||''}</td>
+        <td>${g.odeme_turu||''}</td><td style="color:var(--yesil);font-weight:600">${para(g.tutar)}</td>
+        ${isAdmin() ? `<td><button class="btn btn-kirmizi btn-sm" onclick="gelirSil(${g.id})">Sil</button></td>` : ''}
+      </tr>`;
+    }
+    html += '</tbody></table></div>';
+    document.getElementById('sayfa-icerik').innerHTML = html;
+    document.getElementById('gelir-toplam').textContent = `Toplam: ${para(toplam)}`;
+    window._musteriler = musteriler;
+  },
+
+  // GİDER
+  gider: async () => {
+    const giderler = await api('/giderler');
+    if (!giderler) return;
+    let toplam = 0;
+    let html = `
+      <div class="sayfa-baslik">Giderler</div>
+      <div class="toolbar">
+        ${isAdmin() ? '<button class="btn btn-ana" onclick="giderEkleModal()">+ Gider Ekle</button>' : ''}
+        <span id="gider-toplam" style="margin-left:auto;font-weight:700;color:var(--kirmizi)"></span>
+      </div>
+      <div class="tablo-wrap"><table>
+        <thead><tr><th>Tarih</th><th>Kategori</th><th>Açıklama</th><th>Araç</th><th>Tutar</th>${isAdmin()?'<th>İşlem</th>':''}</tr></thead>
+        <tbody>`;
+    for (const g of giderler) {
+      toplam += g.tutar || 0;
+      html += `<tr><td>${g.tarih}</td><td>${g.kategori}</td><td>${g.aciklama}</td>
+        <td>${g.arac||''}</td><td style="color:var(--kirmizi);font-weight:600">${para(g.tutar)}</td>
+        ${isAdmin() ? `<td><button class="btn btn-kirmizi btn-sm" onclick="giderSil(${g.id})">Sil</button></td>` : ''}
+      </tr>`;
+    }
+    html += '</tbody></table></div>';
+    document.getElementById('sayfa-icerik').innerHTML = html;
+    document.getElementById('gider-toplam').textContent = `Toplam: ${para(toplam)}`;
+  },
+
+  // PERSONELLER
+  personeller: async () => {
+    const personeller = await api('/personeller');
+    if (!personeller) return;
+    let html = `
+      <div class="sayfa-baslik">Personeller</div>
+      <div class="toolbar">
+        ${isAdmin() ? '<button class="btn btn-ana" onclick="personelEkleModal()">+ Personel Ekle</button>' : ''}
+      </div>
+      <div class="tablo-wrap"><table>
+        <thead><tr><th>Ad Soyad</th><th>Telefon</th><th>Görev</th><th>Maaş</th><th>İşe Giriş</th><th>Çıkış</th><th>Durum</th>${isAdmin()?'<th>İşlem</th>':''}</tr></thead>
+        <tbody>`;
+    for (const p of personeller) {
+      const renk = p.durum==='Aktif' ? 'var(--yesil)' : 'var(--kirmizi)';
+      html += `<tr style="color:${renk}">
+        <td><strong>${p.ad}</strong></td><td>${p.telefon||''}</td><td>${p.gorev||''}</td>
+        <td>${para(p.maas)}</td><td>${p.ise_giris||''}</td><td>${p.cikis_tarihi||''}</td>
+        <td><span class="badge ${p.durum==='Aktif'?'badge-yesil':'badge-kirmizi'}">${p.durum}</span></td>
+        ${isAdmin() ? `<td><button class="btn btn-kirmizi btn-sm" onclick="personelSil(${p.id})">Sil</button></td>` : ''}
+      </tr>`;
+    }
+    html += '</tbody></table></div>';
+    document.getElementById('sayfa-icerik').innerHTML = html;
+  },
+
+  // ÇEK/SENET
+  cek_senet: async () => {
+    const cekler = await api('/cek-senetler');
+    if (!cekler) return;
+    let bekleyen = 0; let toplam = 0;
+    let html = `
+      <div class="sayfa-baslik">Çek / Senet Takibi</div>
+      <div class="toolbar">
+        ${isAdmin() ? '<button class="btn btn-ana" onclick="cekEkleModal()">+ Çek / Senet Ekle</button>' : ''}
+        ${isAdmin() ? '<button class="btn btn-yesil btn-sm" onclick="cekDurumDegistir(\'Tahsil Edildi\')">✓ Tahsil Edildi</button>' : ''}
+        ${isAdmin() ? '<button class="btn btn-kirmizi btn-sm" onclick="cekDurumDegistir(\'Karsilıksız\')">✗ Karşılıksız</button>' : ''}
+        <span id="cek-toplam" style="margin-left:auto;font-weight:700;color:var(--mor)"></span>
+      </div>
+      <div class="tablo-wrap"><table>
+        <thead><tr><th></th><th>Vade</th><th>Müşteri</th><th>Tür</th><th>Banka</th><th>No</th><th>Tutar</th><th>Durum</th>${isAdmin()?'<th>İşlem</th>':''}</tr></thead>
+        <tbody>`;
+    for (const c of cekler) {
+      toplam += c.tutar || 0;
+      if (c.durum === 'Beklemede') bekleyen += c.tutar || 0;
+      const renk = c.durum==='Tahsil Edildi' ? 'var(--yesil)' : c.durum==='Karsilıksız' ? 'var(--kirmizi)' : 'var(--metin)';
+      html += `<tr style="color:${renk}" data-id="${c.id}">
+        <td><input type="checkbox" class="cek-cb" data-id="${c.id}"></td>
+        <td>${c.vade}</td><td>${c.musteri_adi||''}</td><td>${c.tur}</td>
+        <td>${c.banka||''}</td><td>${c.no||''}</td>
+        <td style="font-weight:600">${para(c.tutar)}</td>
+        <td><span class="badge ${c.durum==='Tahsil Edildi'?'badge-yesil':c.durum==='Karsilıksız'?'badge-kirmizi':'badge-turuncu'}">${c.durum}</span></td>
+        ${isAdmin() ? `<td><button class="btn btn-kirmizi btn-sm" onclick="cekSil(${c.id})">Sil</button></td>` : ''}
+      </tr>`;
+    }
+    html += '</tbody></table></div>';
+    document.getElementById('sayfa-icerik').innerHTML = html;
+    document.getElementById('cek-toplam').textContent = `Toplam: ${para(toplam)} | Bekleyen: ${para(bekleyen)}`;
+  },
+
+  // BETON PROGRAMI
+  beton_prog: async () => {
+    const program = await api('/beton-programi');
+    const musteriler = await api('/musteriler');
+    if (!program) return;
+    const bugun = tarihBugun();
+    const bugunler = program.filter(b => b.tarih === bugun);
+    let html = `
+      <div class="sayfa-baslik">🏗 Beton Programı</div>
+      ${bugunler.length ? `<div class="kart" style="margin-bottom:16px;background:#eff6ff;border-color:#bfdbfe">
+        <div class="k-baslik" style="color:var(--ana);font-weight:700">Bugünün Programı</div>
+        ${bugunler.map(b => `<div style="margin-top:8px;font-size:14px">
+          📍 ${b.musteri_adi||''} | ${b.blok||''} Blok ${b.kat||''} Kat
+          ${b.saat ? '⏰ '+b.saat : ''} ${b.m3 ? '| '+b.m3+' m³' : ''} ${b.beton_sinifi||''}
+        </div>`).join('')}
+      </div>` : ''}
+      <div class="toolbar">
+        ${isAdmin() ? '<button class="btn btn-ana" onclick="betonEkleModal()">+ Beton Ekle</button>' : ''}
+        <small style="color:var(--ikincil)">Döküm bittikten sonra siliniz</small>
+      </div>
+      <div class="tablo-wrap"><table>
+        <thead><tr><th>Tarih</th><th>Saat</th><th>Müşteri</th><th>YİBF</th><th>Blok</th><th>Kat</th><th>M³</th><th>Sınıf</th><th>Not</th>${isAdmin()?'<th>İşlem</th>':''}</tr></thead>
+        <tbody>`;
+    for (const b of program) {
+      const stl = b.tarih === bugun ? 'background:#eff6ff' : '';
+      html += `<tr style="${stl}">
+        <td><strong>${b.tarih}</strong></td><td>${b.saat||''}</td><td>${b.musteri_adi||''}</td>
+        <td>${b.yibf||''}</td><td>${b.blok||''}</td><td>${b.kat||''}</td>
+        <td>${b.m3||''}</td><td>${b.beton_sinifi||''}</td><td>${b.not_||''}</td>
+        ${isAdmin() ? `<td><button class="btn btn-kirmizi btn-sm" onclick="betonSil(${b.id})">Sil</button></td>` : ''}
+      </tr>`;
+    }
+    html += '</tbody></table></div>';
+    document.getElementById('sayfa-icerik').innerHTML = html;
+    window._musteriler = musteriler;
+  },
+
+  // AYLIK
+  aylik: async () => {
+    const yil = new Date().getFullYear();
+    const data = await api(`/aylik?yil=${yil}`);
+    if (!data) return;
+    const max = Math.max(...data.map(d => Math.max(d.gelir, d.gider, 0.01)));
+    let html = `<div class="sayfa-baslik">Aylık Durum ${yil}</div>
+    <div class="tablo-wrap" style="margin-bottom:16px">
+      <table><thead><tr><th>Ay</th><th>Tahsilat</th><th>Gider</th><th>Net Kâr</th><th>Grafik</th></tr></thead><tbody>`;
+    for (const d of data) {
+      const barG = (d.gelir/max*100).toFixed(0);
+      const barGi = (d.gider/max*100).toFixed(0);
+      html += `<tr>
+        <td><strong>${d.etiket}</strong></td>
+        <td style="color:var(--yesil)">${para(d.gelir)}</td>
+        <td style="color:var(--kirmizi)">${para(d.gider)}</td>
+        <td style="color:${d.net>=0?'var(--yesil)':'var(--kirmizi)'}"><strong>${para(d.net)}</strong></td>
+        <td style="width:160px">
+          <div style="height:6px;background:#dcfce7;border-radius:3px;width:${barG}%;margin-bottom:2px"></div>
+          <div style="height:6px;background:#fee2e2;border-radius:3px;width:${barGi}%"></div>
+        </td>
+      </tr>`;
+    }
+    html += '</tbody></table></div>';
+    document.getElementById('sayfa-icerik').innerHTML = html;
+  },
+
+  // KDV BEYANNAMESİ
+  kdv: async () => {
+    const yil = new Date().getFullYear();
+    const data = await api(`/aylik?yil=${yil}`);
+    if (!data) return;
+    let topMat = 0; let topKdv = 0; let topKdvli = 0; let kumul = 0;
+    let html = `<div class="sayfa-baslik">KDV Beyannamesi ${yil}</div>
+    <div class="tablo-wrap"><table>
+      <thead><tr><th>Ay</th><th>KDVli Ciro</th><th>KDV Matrahı</th><th>Hesaplanan KDV</th><th>Kümülatif</th></tr></thead><tbody>`;
+    for (const d of data) {
+      const mat = d.gelir / 1.2;
+      const kdv = d.gelir - mat;
+      kumul += kdv; topMat += mat; topKdv += kdv; topKdvli += d.gelir;
+      html += `<tr><td><strong>${d.etiket}</strong></td>
+        <td>${para(d.gelir)}</td><td>${para(mat)}</td>
+        <td style="color:var(--kirmizi)">${para(kdv)}</td>
+        <td>${para(kumul)}</td></tr>`;
+    }
+    html += `<tr style="background:#f8fafc;font-weight:700">
+      <td>TOPLAM</td><td>${para(topKdvli)}</td><td>${para(topMat)}</td>
+      <td style="color:var(--kirmizi)">${para(topKdv)}</td><td></td>
+    </tr></tbody></table></div>`;
+    document.getElementById('sayfa-icerik').innerHTML = html;
+  },
+
+  // KULLANICILAR
+  kullanicilar: async () => {
+    if (!isAdmin()) return;
+    const kullanicilar = await api('/kullanicilar');
+    if (!kullanicilar) return;
+    let html = `
+      <div class="sayfa-baslik">Kullanıcı Yönetimi</div>
+      <div class="toolbar">
+        <button class="btn btn-ana" onclick="kullaniciEkleModal()">+ Yeni Kullanıcı</button>
+      </div>
+      <div class="tablo-wrap"><table>
+        <thead><tr><th>ID</th><th>Kullanıcı Adı</th><th>Ad Soyad</th><th>Rol</th><th>Durum</th><th>İşlem</th></tr></thead>
+        <tbody>`;
+    for (const k of kullanicilar) {
+      html += `<tr>
+        <td>${k.id}</td><td>${k.kullanici_adi}</td><td>${k.ad}</td>
+        <td><span class="badge ${k.rol==='admin'?'badge-kirmizi':'badge-turuncu'}">${k.rol}</span></td>
+        <td><span class="badge ${k.aktif?'badge-yesil':'badge-kirmizi'}">${k.aktif?'Aktif':'Pasif'}</span></td>
+        <td>
+          <button class="btn btn-gri btn-sm" onclick="kullaniciDurum(${k.id},'${k.aktif?'pasif':'aktif'}')">
+            ${k.aktif?'Pasife Al':'Aktife Al'}
+          </button>
+          ${k.kullanici_adi !== 'labin' ? `<button class="btn btn-kirmizi btn-sm" onclick="kullaniciSil(${k.id})" style="margin-left:4px">Sil</button>` : ''}
+        </td>
+      </tr>`;
+    }
+    html += '</tbody></table></div>';
+    document.getElementById('sayfa-icerik').innerHTML = html;
+  }
+};
+
+// ── MODAL YARDIMCI ────────────────────────────────────────────────────────────
+function modal(baslik, icerik, kaydetFn) {
+  const m = document.createElement('div');
+  m.className = 'modal-overlay';
+  m.id = 'aktif-modal';
+  m.innerHTML = `<div class="modal">
+    <h3>${baslik}</h3>
+    ${icerik}
+    <div class="modal-footer">
+      <button class="btn btn-gri" onclick="modalKapat()">İptal</button>
+      <button class="btn btn-ana" onclick="_modalKaydet()">Kaydet</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  window._modalKaydet = async () => { await kaydetFn(); };
+}
+
+function modalKapat() {
+  document.getElementById('aktif-modal')?.remove();
+}
+
+// ── MÜŞTERİ ──────────────────────────────────────────────────────────────────
+function musteriEkleModal(m = null) {
+  modal(m ? 'Müşteri Düzenle' : 'Yeni Müşteri', `
+    <div class="form-row">
+      <div class="form-grup">
+        <label>Müşteri Tipi *</label>
+        <select id="m-tip">
+          <option value="Muteahhit" ${m?.tip==='Muteahhit'?'selected':''}>Müteahhit</option>
+          <option value="Beton Firmasi" ${m?.tip==='Beton Firmasi'?'selected':''}>Beton Firması</option>
+        </select>
+      </div>
+      <div class="form-grup"><label>Firma / Ad *</label><input id="m-firma" value="${m?.firma||''}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-grup"><label>Yetkili</label><input id="m-yetkili" value="${m?.yetkili||''}"></div>
+      <div class="form-grup"><label>Telefon</label><input id="m-telefon" value="${m?.telefon||''}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-grup">
+        <label>Belediye</label>
+        <select id="m-belediye">
+          <option value="">Seçin...</option>
+          ${['Diyarbakir Buyuksehir','Sur','Kayapinar','Yenisehir','Baglar','Bismil','Cermik','Cinar','Cungus','Dicle','Egil','Ergani','Hani','Hazro','Kocakoy','Kulp','Lice','Silvan','Diger']
+            .map(b=>`<option value="${b}" ${m?.belediye===b?'selected':''}>${b}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-grup"><label>Vergi No</label><input id="m-vergino" value="${m?.vergino||''}"></div>
+    </div>
+    <p style="font-weight:600;margin:12px 0 8px;color:var(--ana)">Numune Birim Fiyatları (KDV Hariç)</p>
+    <div class="form-row-3">
+      <div class="form-grup"><label>Taze Beton</label><input type="number" id="m-beton" value="${m?.son_fiyat?.taze_beton||0}"></div>
+      <div class="form-grup"><label>Çelik</label><input type="number" id="m-celik" value="${m?.son_fiyat?.celik||0}"></div>
+      <div class="form-grup"><label>Karot</label><input type="number" id="m-karot" value="${m?.son_fiyat?.karot||0}"></div>
+    </div>
+  `, async () => {
+    const firma = document.getElementById('m-firma').value.trim();
+    if (!firma) { alert('Firma/Ad zorunludur!'); return; }
+    const body = {
+      tip: document.getElementById('m-tip').value,
+      firma,
+      yetkili: document.getElementById('m-yetkili').value,
+      telefon: document.getElementById('m-telefon').value,
+      vergino: document.getElementById('m-vergino').value,
+      belediye: document.getElementById('m-belediye').value,
+      eposta: '', adres: '',
+      taze_beton: +document.getElementById('m-beton').value,
+      celik: +document.getElementById('m-celik').value,
+      karot: +document.getElementById('m-karot').value,
+    };
+    const r = m ? await api(`/musteriler/${m.id}`, 'PUT', body) : await api('/musteriler', 'POST', body);
+    if (r) { modalKapat(); sayfalar.musteriler(); }
+  });
+}
+
+async function musteriDuzenle(id) {
+  const m = window._musteriler?.find(x => x.id === id);
+  if (m) musteriEkleModal(m);
+}
+
+async function musteriSil(id) {
+  if (!confirm('Bu müşteriyi silmek istiyor musunuz?')) return;
+  const r = await api(`/musteriler/${id}`, 'DELETE');
+  if (r) sayfalar.musteriler();
+}
+
+function musteriAra() {
+  const ara = document.getElementById('ara-musteri')?.value.toLowerCase() || '';
+  document.querySelectorAll('#musteri-tbody tr').forEach(tr => {
+    const firma = tr.dataset.firma || '';
+    tr.style.display = firma.includes(ara) ? '' : 'none';
+  });
+}
+
+function musteriTipFiltre(tip) {
+  document.querySelectorAll('#musteri-tbody tr').forEach(tr => {
+    tr.style.display = (!tip || tr.dataset.tip === tip) ? '' : 'none';
+  });
+}
+
+// ── NUMUNE ────────────────────────────────────────────────────────────────────
+function numuneEkleModal(tur) {
+  const musteriler = (window._musteriler || []).filter(m =>
+    tur === 'Karot' ? m.tip === 'Beton Firmasi' : m.tip === 'Muteahhit'
+  );
+  const caplar = ['8','10','12','16','18','20','22','24','26','28','30','32'];
+  modal(`Yeni ${tur} Numunesi`, `
+    <div class="form-row">
+      <div class="form-grup"><label>Tarih *</label><input type="date" id="n-tarih" value="${tarihBugun()}"></div>
+      <div class="form-grup">
+        <label>Müşteri * <small style="color:var(--ikincil)">(${tur==='Karot'?'Beton Firması':'Müteahhit'})</small></label>
+        <select id="n-musteri" onchange="numuneMusteri()">
+          <option value="">-- Müşteri Seçin --</option>
+          ${musteriler.map(m=>`<option value="${m.id}" data-firma="${m.firma}" data-bel="${m.belediye||''}"
+            data-beton="${m.son_fiyat?.taze_beton||0}" data-celik="${m.son_fiyat?.celik||0}" data-karot="${m.son_fiyat?.karot||0}">
+            ${m.firma}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-grup"><label>YİBF No</label><input id="n-yibf"></div>
+      <div class="form-grup"><label>Belediye</label><input id="n-belediye"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-grup"><label>Blok</label><input id="n-blok"></div>
+      <div class="form-grup"><label>Kat</label><input id="n-kat"></div>
+    </div>
+    ${tur==='Taze Beton' ? `<div class="form-row">
+      <div class="form-grup"><label>M³</label><input id="n-m3" placeholder="12.5"></div>
+      <div class="form-grup"><label>Beton Sınıfı</label>
+        <select id="n-sinif">${['C16','C20','C25','C30','C35','C40','C45','C50'].map(s=>`<option>${s}</option>`).join('')}</select>
+      </div>
+    </div>` : ''}
+    ${tur==='Celik' ? `<div class="form-grup"><label>φ Çap Seçimi</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${caplar.map(c=>`<label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+          <input type="checkbox" value="${c}" class="cap-cb"> φ${c}</label>`).join('')}
+      </div></div>` : ''}
+    <div class="form-row-3">
+      <div class="form-grup"><label>Adet *</label><input type="number" id="n-adet" value="1" oninput="numuneHesap()"></div>
+      <div class="form-grup"><label>Birim Fiyat</label><input type="number" id="n-fiyat" value="0" oninput="numuneHesap()"></div>
+      <div class="form-grup"><label>KDV (%)</label><input type="number" id="n-kdv" value="20" oninput="numuneHesap()"></div>
+    </div>
+    <div id="n-hesap" style="color:var(--yesil);font-size:13px;margin-bottom:8px"></div>
+    <div class="form-grup"><label>Not</label><input id="n-not"></div>
+  `, async () => {
+    const mid = document.getElementById('n-musteri').value;
+    if (!mid) { alert('Lütfen bir müşteri seçin!'); return; }
+    const adet = +document.getElementById('n-adet').value || 1;
+    const fiyat = +document.getElementById('n-fiyat').value || 0;
+    const kdv = +document.getElementById('n-kdv').value || 0;
+    const kdvsiz = adet * fiyat;
+    const kdvt = kdvsiz * kdv / 100;
+    const mEl = document.querySelector('#n-musteri option:checked');
+    const caplar = tur === 'Celik'
+      ? [...document.querySelectorAll('.cap-cb:checked')].map(c=>c.value).join(',')
+      : '';
+    const body = {
+      tur, musteri_id: +mid,
+      musteri_adi: mEl?.dataset.firma || '',
+      tarih: document.getElementById('n-tarih').value,
+      yibf: document.getElementById('n-yibf').value,
+      belediye: document.getElementById('n-belediye').value,
+      blok: document.getElementById('n-blok').value,
+      kat: document.getElementById('n-kat').value,
+      m3: document.getElementById('n-m3')?.value || '',
+      beton_sinifi: document.getElementById('n-sinif')?.value || '',
+      caplar,
+      adet, birim_fiyat: fiyat, kdv_oran: kdv,
+      kdv_tutar: kdvt, toplam: kdvsiz, toplam_kdvli: kdvsiz + kdvt,
+      not_: document.getElementById('n-not').value,
+    };
+    const r = await api('/numuneler', 'POST', body);
+    if (r) { modalKapat(); sayfalar[tur==='Taze Beton'?'taze_beton':tur==='Celik'?'celik':'karot'](); }
+  });
+}
+
+function numuneMusteri() {
+  const el = document.querySelector('#n-musteri option:checked');
+  if (!el || !el.value) return;
+  document.getElementById('n-belediye').value = el.dataset.bel || '';
+  // Otomatik fiyat
+  const tur = window._aktifNumuneTur;
+  const fiyatKey = tur==='Taze Beton'?'beton':tur==='Celik'?'celik':'karot';
+  document.getElementById('n-fiyat').value = el.dataset[fiyatKey] || 0;
+  numuneHesap();
+}
+
+function numuneHesap() {
+  const a = +document.getElementById('n-adet')?.value || 0;
+  const f = +document.getElementById('n-fiyat')?.value || 0;
+  const k = +document.getElementById('n-kdv')?.value || 0;
+  const kdvsiz = a * f;
+  const kdvli = kdvsiz * (1 + k/100);
+  const el = document.getElementById('n-hesap');
+  if (el) el.textContent = `${a} × ${f.toLocaleString('tr-TR')} ₺ = KDVsiz: ${kdvsiz.toLocaleString('tr-TR')} ₺ | KDVli: ${kdvli.toLocaleString('tr-TR')} ₺`;
+}
+
+async function numuneSil(id) {
+  if (!confirm('Bu numuneyi silmek istiyor musunuz?')) return;
+  const r = await api(`/numuneler/${id}`, 'DELETE');
+  if (r) sayfaGit(aktifSayfa);
+}
+
+async function durumDegistir(tip, durum) {
+  const cblar = document.querySelectorAll('.numune-cb:checked');
+  if (!cblar.length) { alert('Lütfen numune seçin'); return; }
+  for (const cb of cblar) {
+    await api(`/numuneler/${cb.dataset.id}/durum`, 'PUT', {durum});
+  }
+  sayfaGit(aktifSayfa);
+}
+
+// ── GELİR ────────────────────────────────────────────────────────────────────
+function gelirEkleModal() {
+  const musteriler = window._musteriler || [];
+  modal('Tahsilat Ekle', `
+    <div class="form-grup"><label>Tarih *</label><input type="date" id="g-tarih" value="${tarihBugun()}"></div>
+    <div class="form-grup"><label>Açıklama *</label><input id="g-ac" placeholder="Beton numune bedeli"></div>
+    <div class="form-grup"><label>Müşteri</label>
+      <select id="g-musteri"><option value="">Seçin...</option>
+        ${musteriler.map(m=>`<option value="${m.id}" data-firma="${m.firma}">${m.firma}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-grup"><label>Tutar (₺) *</label><input type="number" id="g-tutar" placeholder="0"></div>
+      <div class="form-grup"><label>Ödeme Türü</label>
+        <select id="g-odeme"><option>Nakit</option><option>Havale / EFT</option><option>Çek</option><option>Kredi Kartı</option></select>
+      </div>
+    </div>
+  `, async () => {
+    const ac = document.getElementById('g-ac').value.trim();
+    const tutar = +document.getElementById('g-tutar').value;
+    if (!ac) { alert('Açıklama zorunludur!'); return; }
+    if (!tutar) { alert('Tutar zorunludur!'); return; }
+    const mEl = document.querySelector('#g-musteri option:checked');
+    const r = await api('/gelirler', 'POST', {
+      tarih: document.getElementById('g-tarih').value,
+      aciklama: ac,
+      musteri_id: +document.getElementById('g-musteri').value || null,
+      musteri_adi: mEl?.dataset.firma || '',
+      tutar,
+      odeme_turu: document.getElementById('g-odeme').value,
+    });
+    if (r) { modalKapat(); sayfalar.gelir(); }
+  });
+}
+
+async function gelirSil(id) {
+  if (!confirm('Bu kaydı silmek istiyor musunuz?')) return;
+  const r = await api(`/gelirler/${id}`, 'DELETE');
+  if (r) sayfalar.gelir();
+}
+
+// ── GİDER ────────────────────────────────────────────────────────────────────
+function giderEkleModal() {
+  modal('Gider Ekle', `
+    <div class="form-grup"><label>Tarih *</label><input type="date" id="gi-tarih" value="${tarihBugun()}"></div>
+    <div class="form-grup"><label>Kategori</label>
+      <select id="gi-kat">
+        ${['Personel Maaşları','Mazot / Benzin Gideri','Fatura Giderleri','Sanayi Giderleri','Diğer Giderler']
+          .map(k=>`<option>${k}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-grup"><label>Açıklama *</label><input id="gi-ac"></div>
+    <div class="form-row">
+      <div class="form-grup"><label>Tutar (₺) *</label><input type="number" id="gi-tutar" placeholder="0"></div>
+      <div class="form-grup"><label>Araç</label><input id="gi-arac" placeholder="Plaka veya araç"></div>
+    </div>
+  `, async () => {
+    const ac = document.getElementById('gi-ac').value.trim();
+    const tutar = +document.getElementById('gi-tutar').value;
+    if (!ac) { alert('Açıklama zorunludur!'); return; }
+    if (!tutar) { alert('Tutar zorunludur!'); return; }
+    const r = await api('/giderler', 'POST', {
+      tarih: document.getElementById('gi-tarih').value,
+      kategori: document.getElementById('gi-kat').value,
+      aciklama: ac, tutar,
+      arac: document.getElementById('gi-arac').value,
+    });
+    if (r) { modalKapat(); sayfalar.gider(); }
+  });
+}
+
+async function giderSil(id) {
+  if (!confirm('Bu kaydı silmek istiyor musunuz?')) return;
+  const r = await api(`/giderler/${id}`, 'DELETE');
+  if (r) sayfalar.gider();
+}
+
+// ── PERSONEL ─────────────────────────────────────────────────────────────────
+function personelEkleModal() {
+  modal('Personel Ekle', `
+    <div class="form-row">
+      <div class="form-grup"><label>Ad Soyad *</label><input id="p-ad"></div>
+      <div class="form-grup"><label>Telefon</label><input id="p-tel"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-grup"><label>Görev</label><input id="p-gorev"></div>
+      <div class="form-grup"><label>Maaş</label><input type="number" id="p-maas" value="0"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-grup"><label>İşe Giriş</label><input type="date" id="p-giris" value="${tarihBugun()}"></div>
+      <div class="form-grup"><label>Durum</label>
+        <select id="p-durum"><option>Aktif</option><option>Pasif</option><option>Ayrildi</option></select>
+      </div>
+    </div>
+    <div class="form-grup"><label>IBAN</label><input id="p-iban"></div>
+  `, async () => {
+    const ad = document.getElementById('p-ad').value.trim();
+    if (!ad) { alert('Ad Soyad zorunludur!'); return; }
+    const r = await api('/personeller', 'POST', {
+      ad, telefon: document.getElementById('p-tel').value,
+      gorev: document.getElementById('p-gorev').value,
+      maas: +document.getElementById('p-maas').value,
+      ise_giris: document.getElementById('p-giris').value,
+      durum: document.getElementById('p-durum').value,
+      iban: document.getElementById('p-iban').value,
+      cikis_tarihi: '',
+    });
+    if (r) { modalKapat(); sayfalar.personeller(); }
+  });
+}
+
+async function personelSil(id) {
+  if (!confirm('Bu personeli silmek istiyor musunuz?')) return;
+  const r = await api(`/personeller/${id}`, 'DELETE');
+  if (r) sayfalar.personeller();
+}
+
+// ── ÇEK/SENET ────────────────────────────────────────────────────────────────
+function cekEkleModal() {
+  const musteriler = window._musteriler || [];
+  modal('Çek / Senet Ekle', `
+    <div class="form-row">
+      <div class="form-grup"><label>Vade Tarihi *</label><input type="date" id="c-vade" value="${tarihBugun()}"></div>
+      <div class="form-grup"><label>Tür</label>
+        <select id="c-tur"><option>Cek</option><option>Senet</option></select>
+      </div>
+    </div>
+    <div class="form-grup"><label>Müşteri</label>
+      <select id="c-musteri"><option value="">Seçin...</option>
+        ${(window._musteriler||[]).map(m=>`<option value="${m.firma}">${m.firma}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-grup"><label>Banka</label><input id="c-banka"></div>
+      <div class="form-grup"><label>Çek / Senet No</label><input id="c-no"></div>
+    </div>
+    <div class="form-grup"><label>Tutar (₺) *</label><input type="number" id="c-tutar" placeholder="0"></div>
+  `, async () => {
+    const tutar = +document.getElementById('c-tutar').value;
+    if (!tutar) { alert('Tutar zorunludur!'); return; }
+    const r = await api('/cek-senetler', 'POST', {
+      vade: document.getElementById('c-vade').value,
+      tur: document.getElementById('c-tur').value,
+      musteri_adi: document.getElementById('c-musteri').value,
+      banka: document.getElementById('c-banka').value,
+      no: document.getElementById('c-no').value,
+      tutar, durum: 'Beklemede',
+    });
+    if (r) { modalKapat(); sayfalar.cek_senet(); }
+  });
+}
+
+async function cekDurumDegistir(durum) {
+  const cblar = document.querySelectorAll('.cek-cb:checked');
+  if (!cblar.length) { alert('Lütfen çek/senet seçin'); return; }
+  for (const cb of cblar) {
+    await api(`/cek-senetler/${cb.dataset.id}/durum`, 'PUT', {durum});
+  }
+  sayfalar.cek_senet();
+}
+
+async function cekSil(id) {
+  if (!confirm('Bu kaydı silmek istiyor musunuz?')) return;
+  const r = await api(`/cek-senetler/${id}`, 'DELETE');
+  if (r) sayfalar.cek_senet();
+}
+
+// ── BETON PROGRAMI ────────────────────────────────────────────────────────────
+function betonEkleModal() {
+  const musteriler = (window._musteriler || []).filter(m => m.tip === 'Muteahhit');
+  modal('Beton Döküm Ekle', `
+    <div class="form-row">
+      <div class="form-grup"><label>Döküm Tarihi *</label><input type="date" id="b-tarih" value="${tarihBugun()}"></div>
+      <div class="form-grup"><label>Saat</label><input id="b-saat" placeholder="08:00"></div>
+    </div>
+    <div class="form-grup"><label>Müşteri (Müteahhit)</label>
+      <select id="b-musteri" onchange="betonMusteri()">
+        <option value="">Seçin...</option>
+        ${musteriler.map(m=>`<option value="${m.firma}" data-bel="${m.belediye||''}">${m.firma}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-grup"><label>YİBF No</label><input id="b-yibf"></div>
+      <div class="form-grup"><label>Belediye</label><input id="b-belediye"></div>
+    </div>
+    <div class="form-row-3">
+      <div class="form-grup"><label>Blok</label><input id="b-blok"></div>
+      <div class="form-grup"><label>Kat</label><input id="b-kat"></div>
+      <div class="form-grup"><label>M³</label><input id="b-m3" placeholder="12.5"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-grup"><label>Beton Sınıfı</label>
+        <select id="b-sinif">${['C16','C20','C25','C30','C35','C40','C45','C50'].map(s=>`<option>${s}</option>`).join('')}</select>
+      </div>
+      <div class="form-grup"><label>Not</label><input id="b-not"></div>
+    </div>
+  `, async () => {
+    const r = await api('/beton-programi', 'POST', {
+      tarih: document.getElementById('b-tarih').value,
+      saat: document.getElementById('b-saat').value,
+      musteri_adi: document.getElementById('b-musteri').value,
+      yibf: document.getElementById('b-yibf').value,
+      belediye: document.getElementById('b-belediye').value,
+      blok: document.getElementById('b-blok').value,
+      kat: document.getElementById('b-kat').value,
+      m3: document.getElementById('b-m3').value,
+      beton_sinifi: document.getElementById('b-sinif').value,
+      not_: document.getElementById('b-not').value,
+    });
+    if (r) { modalKapat(); sayfalar.beton_prog(); }
+  });
+}
+
+function betonMusteri() {
+  const el = document.querySelector('#b-musteri option:checked');
+  if (el) document.getElementById('b-belediye').value = el.dataset.bel || '';
+}
+
+async function betonSil(id) {
+  if (!confirm('Bu kaydı silmek istiyor musunuz?')) return;
+  const r = await api(`/beton-programi/${id}`, 'DELETE');
+  if (r) sayfalar.beton_prog();
+}
+
+// ── KULLANICILAR ──────────────────────────────────────────────────────────────
+function kullaniciEkleModal() {
+  modal('Yeni Kullanıcı', `
+    <div class="form-grup"><label>Ad Soyad *</label><input id="ku-ad"></div>
+    <div class="form-row">
+      <div class="form-grup"><label>Kullanıcı Adı *</label><input id="ku-kadi" placeholder="küçük harf"></div>
+      <div class="form-grup"><label>Şifre *</label><input type="password" id="ku-sifre"></div>
+    </div>
+    <div class="form-grup"><label>Rol</label>
+      <select id="ku-rol">
+        <option value="kullanici">kullanıcı (sadece görüntüler)</option>
+        <option value="admin">admin (tam yetki)</option>
+      </select>
+    </div>
+    <small style="color:var(--ikincil)">admin = ekleme/silme/düzenleme yapabilir | kullanıcı = sadece görüntüler</small>
+  `, async () => {
+    const ad = document.getElementById('ku-ad').value.trim();
+    const ku = document.getElementById('ku-kadi').value.trim().toLowerCase();
+    const sf = document.getElementById('ku-sifre').value.trim();
+    if (!ad || !ku || !sf) { alert('Tüm alanlar zorunludur!'); return; }
+    const r = await api('/kullanicilar', 'POST', {
+      ad, kullanici_adi: ku, sifre: sf,
+      rol: document.getElementById('ku-rol').value,
+    });
+    if (r) { modalKapat(); sayfalar.kullanicilar(); }
+  });
+}
+
+async function kullaniciDurum(id, durum) {
+  const r = await api(`/kullanicilar/${id}/durum`, 'PUT', {durum});
+  if (r) sayfalar.kullanicilar();
+}
+
+async function kullaniciSil(id) {
+  if (!confirm('Bu kullanıcıyı silmek istiyor musunuz?')) return;
+  const r = await api(`/kullanicilar/${id}`, 'DELETE');
+  if (r) sayfalar.kullanicilar();
+}
+
+// ── BAŞLANGIÇ ─────────────────────────────────────────────────────────────────
+if (token && aktifKullanici) {
+  baslatUygulama();
+}
+</script>
+</body>
+</html>
