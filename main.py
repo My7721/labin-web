@@ -708,6 +708,75 @@ def aylik(yil: int = None, token=Depends(token_dogrula)):
     conn.close()
     return result
 
+# PWA Manifest
+@app.get("/manifest.json")
+async def manifest():
+    from fastapi.responses import JSONResponse
+    return JSONResponse({
+        "name": "Labin Yapı Laboratuvarı",
+        "short_name": "Labin Lab",
+        "description": "Yapı laboratuvarı yönetim sistemi",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#1e3a5f",
+        "theme_color": "#1e3a5f",
+        "orientation": "portrait-primary",
+        "icons": [
+            {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+        ],
+        "categories": ["business", "productivity"]
+    })
+
+# PWA Service Worker
+@app.get("/sw.js")
+async def service_worker():
+    from fastapi.responses import Response
+    sw_content = """
+const CACHE = 'labin-v1';
+const ASSETS = ['/'];
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
+  self.skipWaiting();
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys =>
+    Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+  ));
+  self.clients.claim();
+});
+self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
+  if (e.request.url.includes('/giris') || e.request.url.includes('/api')) return;
+  e.respondWith(
+    fetch(e.request).catch(() => caches.match(e.request))
+  );
+});
+"""
+    return Response(content=sw_content, media_type="application/javascript")
+
+# PWA ikonlari (basit mavi kare)
+@app.get("/icon-192.png")
+async def icon192():
+    from fastapi.responses import Response
+    import base64
+    # 1x1 mavi PNG base64 - tarayici bunu 192x192 olarak kullanir
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    )
+    return Response(content=png, media_type="image/png",
+                   headers={"Cache-Control": "public, max-age=86400"})
+
+@app.get("/icon-512.png")
+async def icon512():
+    from fastapi.responses import Response
+    import base64
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    )
+    return Response(content=png, media_type="image/png",
+                   headers={"Cache-Control": "public, max-age=86400"})
+
 # Ana sayfada index.html'i gonder
 @app.get("/", response_class=HTMLResponse)
 async def ana_sayfa():
