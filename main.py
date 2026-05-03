@@ -15,7 +15,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 USE_PG = DATABASE_URL.startswith("postgresql") or DATABASE_URL.startswith("postgres")
 
 if USE_PG:
-    import pg8000.dbapi as pg8000
+    import pg8000.dbapi as pg_dbapi
 else:
     import sqlite3
 
@@ -38,7 +38,7 @@ def get_db():
     if USE_PG:
         import urllib.parse
         r = urllib.parse.urlparse(DATABASE_URL)
-        conn = pg8000.dbapi.connect(
+        conn = pg_dbapi.connect(
             host=r.hostname,
             port=r.port or 5432,
             database=r.path.lstrip('/'),
