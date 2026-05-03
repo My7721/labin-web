@@ -23,7 +23,9 @@ app.add_middleware(
 )
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "labin_gizli_anahtar_2024")
-DB_PATH = os.environ.get("DB_PATH", "labin.db")
+# Railway Volume'u varsa /data klasorunu kullan, yoksa yerel
+_data_dir = "/data" if os.path.isdir("/data") else "."
+DB_PATH = os.environ.get("DB_PATH", os.path.join(_data_dir, "labin.db"))
 security = HTTPBearer()
 
 # ── Veritabani ────────────────────────────────────────────────────────────────
