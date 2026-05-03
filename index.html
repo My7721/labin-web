@@ -190,6 +190,7 @@ tr.beklem td { color: var(--metin); }
     <nav id="nav"></nav>
     <div class="sidebar-alt">
       <div id="kullanici-bilgi" class="kullanici-bilgi"></div>
+    <div id="son-guncelleme-lbl" style="padding:0 12px 6px;font-size:10px;color:#475569;"></div>
       <button class="cikis-btn" onclick="cikisYap()">🚪 Çıkış Yap</button>
     </div>
   </div>
@@ -288,6 +289,31 @@ function baslatUygulama() {
   const kb = document.getElementById('kullanici-bilgi');
   kb.innerHTML = `<strong>${aktifKullanici.ad}</strong><br>[${aktifKullanici.rol.toUpperCase()}]`;
 
+  // Son guncelleme tarihini goster
+  async function sonGuncellemeGoster() {
+    try {
+      const r = await api('/son-guncelleme');
+      if (r) {
+        const el = document.getElementById('son-guncelleme-lbl');
+        if (el) el.textContent = 'Son giriş: ' + r.son_guncelleme;
+      }
+    } catch(e) {}
+  }
+  sonGuncellemeGoster();
+  setInterval(sonGuncellemeGoster, 60000);
+
+  // Son guncelleme tarihini goster
+  async function sonGuncellemeGoster() {
+    const r = await api('/son-guncelleme');
+    if (r) {
+      const el = document.getElementById('son-guncelleme-lbl');
+      if (el) el.textContent = 'Son giriş: ' + r.son_guncelleme;
+    }
+  }
+  sonGuncellemeGoster();
+  // Her 60 saniyede bir guncelle
+  setInterval(sonGuncellemeGoster, 60000);
+
   const menuler = [
     ['ozet','📊 Genel Özet'],
     ['aylik','📈 Aylık Durum'],
@@ -317,6 +343,10 @@ async function sayfaGit(id) {
   document.querySelectorAll('#nav a').forEach(a => a.classList.remove('aktif'));
   const el = document.getElementById('menu-'+id);
   if (el) el.classList.add('aktif');
+  // Mobilde menuyu kapat
+  if (window.innerWidth <= 600) {
+    document.getElementById('sidebar')?.classList.remove('acik');
+  }
   const ic = document.getElementById('sayfa-icerik');
   ic.innerHTML = '<p style="color:var(--ikincil);padding:40px">Yükleniyor...</p>';
   await sayfalar[id]?.();
