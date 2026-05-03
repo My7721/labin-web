@@ -473,7 +473,7 @@ const sayfalar = {
       ? ['ID','Tarih','Müşteri','YİBF','Belediye','Blok','Kat','M³','B.Sınıfı','Adet','Birim','KDV','KDVsiz','KDVli','Durum']
       : tur === 'Celik'
       ? ['ID','Tarih','Müşteri','YİBF','Belediye','Blok','Kat','Çaplar','Adet','Birim','KDV','KDVsiz','KDVli','Durum']
-      : ['ID','Tarih','Müşteri','YİBF','Belediye','Blok','Kat','Adet','Birim','KDV','KDVsiz','KDVli','Durum'];
+      : ['ID','Tarih','Müşteri','YİBF','Belediye','Blok','Kat','İş Adı','Adet','Birim','KDV','KDVsiz','KDVli','Durum'];
 
     let html = `
       <div class="sayfa-baslik">${baslik} Numuneleri</div>
@@ -498,6 +498,7 @@ const sayfalar = {
         <td>${n.yibf||''}</td><td>${n.belediye||''}</td><td>${n.blok||''}</td><td>${n.kat||''}</td>`;
       if (tur === 'Taze Beton') satirHucreler += `<td>${n.m3||''}</td><td>${n.beton_sinifi||''}</td>`;
       if (tur === 'Celik') satirHucreler += `<td>${caplar}</td>`;
+      if (tur === 'Karot') satirHucreler += `<td>${n.is_adi||''}</td>`;
       satirHucreler += `<td>${n.adet}</td><td>${para(n.birim_fiyat)}</td>
         <td>%${n.kdv_oran||0}</td><td>${para(n.toplam)}</td><td>${para(n.toplam_kdvli)}</td>
         <td><span class="badge ${n.durum==='Tahsil Edildi'?'badge-yesil':'badge-turuncu'}">${n.durum}</span></td>`;
@@ -687,8 +688,7 @@ const sayfalar = {
             </select>
           </div>
           <div id="detay-exportler" style="display:none;margin-top:18px">
-            <button class="btn btn-yesil btn-sm" onclick="musteriExcel()">📊 Excel</button>
-            <button class="btn btn-kirmizi btn-sm" onclick="musteriPDF()" style="margin-left:6px">📄 PDF</button>
+            <button class="btn btn-ana btn-sm" onclick="musteriPDF()">📄 PDF Rapor</button>
           </div>
         </div>
       </div>
@@ -710,7 +710,6 @@ const sayfalar = {
               ${[2023,2024,2025,2026,2027].map(y=>`<option value="${y}" ${y===new Date().getFullYear()?'selected':''}>${y}</option>`).join('')}
             </select>
             <button class="btn btn-ana btn-sm" onclick="aylikRaporPDF()">📄 PDF İndir</button>
-            <button class="btn btn-yesil btn-sm" onclick="aylikRaporExcel()">📊 Excel</button>
           </div>
         </div>
         <div class="kart">
@@ -1122,6 +1121,7 @@ function numuneEkleModal(tur) {
       <div class="form-grup"><label>KDV (%)</label><input type="number" id="n-kdv" value="20" oninput="numuneHesap()"></div>
     </div>
     <div id="n-hesap" style="color:var(--yesil);font-size:13px;margin-bottom:8px"></div>
+    ${tur==='Karot' ? `<div class="form-grup"><label>İş Adı / İnşaat Adı</label><input id="n-isadi" placeholder="Örn: Kayapınar Konut Projesi"></div>` : ''}
     <div class="form-grup"><label>Not</label><input id="n-not"></div>
   `, async () => {
     const mid = document.getElementById('n-musteri').value;
@@ -1149,6 +1149,7 @@ function numuneEkleModal(tur) {
       adet, birim_fiyat: fiyat, kdv_oran: kdv,
       kdv_tutar: kdvt, toplam: kdvsiz, toplam_kdvli: kdvsiz + kdvt,
       not_: document.getElementById('n-not').value,
+      is_adi: tur === 'Karot' ? (document.getElementById('n-isadi')?.value || '') : '',
     };
     const r = await api('/numuneler', 'POST', body);
     if (r) { modalKapat(); sayfalar[tur==='Taze Beton'?'taze_beton':tur==='Celik'?'celik':'karot'](); }
