@@ -99,7 +99,7 @@ def init_db():
         toplam_kdvli REAL DEFAULT 0,
         durum TEXT DEFAULT 'Beklemede',
         not_ TEXT,
-    is_adi TEXT DEFAULT ''
+        is_adi TEXT DEFAULT '',
         olusturma TEXT DEFAULT (datetime('now'))
     )""")
 
@@ -166,7 +166,7 @@ def init_db():
         m3 TEXT,
         beton_sinifi TEXT,
         not_ TEXT,
-    is_adi TEXT DEFAULT ''
+        is_adi TEXT DEFAULT '',
         olusturma TEXT DEFAULT (datetime('now'))
     )""")
 
