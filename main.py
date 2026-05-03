@@ -651,18 +651,26 @@ def arac_sil(aid: int, token=Depends(admin_kontrol)):
 
 # ── OZET ──────────────────────────────────────────────────────────────────────
 @app.get("/ozet")
-def ozet(token=Depends(token_dogrula)):
+def ozet(bas: Optional[str] = None, bit: Optional[str] = None, token=Depends(token_dogrula)):
     conn = get_db()
-    toplam_numune = conn.execute("SELECT COALESCE(SUM(toplam_kdvli),0) FROM numuneler").fetchone()[0]
-    gelir_toplam = conn.execute("SELECT COALESCE(SUM(tutar),0) FROM gelirler").fetchone()[0]
-    gider_toplam = conn.execute("SELECT COALESCE(SUM(tutar),0) FROM giderler").fetchone()[0]
+    # Tarih filtresi
+    if bas and bit:
+        t_where = f"AND tarih >= '{bas}' AND tarih <= '{bit}'"
+        t_where_cek = f"AND vade >= '{bas}' AND vade <= '{bit}'"
+    else:
+        t_where = ""
+        t_where_cek = ""
+
+    toplam_numune = conn.execute(f"SELECT COALESCE(SUM(toplam_kdvli),0) FROM numuneler WHERE 1=1 {t_where}").fetchone()[0]
+    gelir_toplam = conn.execute(f"SELECT COALESCE(SUM(tutar),0) FROM gelirler WHERE 1=1 {t_where}").fetchone()[0]
+    gider_toplam = conn.execute(f"SELECT COALESCE(SUM(tutar),0) FROM giderler WHERE 1=1 {t_where}").fetchone()[0]
     cek_toplam = conn.execute(
-        "SELECT COALESCE(SUM(tutar),0) FROM cek_senetler WHERE durum!='Karsilıksız'"
+        f"SELECT COALESCE(SUM(tutar),0) FROM cek_senetler WHERE durum!='Karsilıksız' {t_where_cek}"
     ).fetchone()[0]
     tahsilat = gelir_toplam + cek_toplam
-    beton_adet = conn.execute("SELECT COALESCE(SUM(adet),0) FROM numuneler WHERE tur='Taze Beton'").fetchone()[0]
-    celik_adet = conn.execute("SELECT COALESCE(SUM(adet),0) FROM numuneler WHERE tur='Celik'").fetchone()[0]
-    karot_adet = conn.execute("SELECT COALESCE(SUM(adet),0) FROM numuneler WHERE tur='Karot'").fetchone()[0]
+    beton_adet = conn.execute(f"SELECT COALESCE(SUM(adet),0) FROM numuneler WHERE tur='Taze Beton' {t_where}").fetchone()[0]
+    celik_adet = conn.execute(f"SELECT COALESCE(SUM(adet),0) FROM numuneler WHERE tur='Celik' {t_where}").fetchone()[0]
+    karot_adet = conn.execute(f"SELECT COALESCE(SUM(adet),0) FROM numuneler WHERE tur='Karot' {t_where}").fetchone()[0]
     en_yakin_cek = conn.execute(
         "SELECT vade FROM cek_senetler WHERE durum='Beklemede' ORDER BY vade LIMIT 1"
     ).fetchone()
