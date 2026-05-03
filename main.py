@@ -184,6 +184,22 @@ def init_db():
     )""")
     c.execute("INSERT OR IGNORE INTO ayarlar (anahtar, deger) VALUES ('son_guncelleme', '')")
 
+    # Migration - mevcut tablolara eksik kolonlari ekle
+    try:
+        c.execute("ALTER TABLE numuneler ADD COLUMN is_adi TEXT DEFAULT ''")
+    except: pass
+    try:
+        c.execute("ALTER TABLE ayarlar ADD COLUMN deger TEXT")
+    except: pass
+
+    # Migration - mevcut tablolara eksik kolonlari ekle
+    for migration in [
+        "ALTER TABLE numuneler ADD COLUMN is_adi TEXT DEFAULT ''",
+        "ALTER TABLE ayarlar ADD COLUMN deger2 TEXT",
+    ]:
+        try: c.execute(migration)
+        except: pass
+
     # Admin kullanici olustur
     admin_hash = hashlib.sha256("101112da".encode()).hexdigest()
     c.execute("""
