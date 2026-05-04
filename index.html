@@ -250,14 +250,15 @@ tr.beklem td { color: var(--metin); }
       <button onclick="sonIslemGeriAl()" title="Son silmeyi geri al" style="flex:1;padding:7px;background:rgba(255,255,255,.08);border:none;border-radius:8px;color:#94a3b8;font-size:16px;cursor:pointer">↩️</button>
       <button onclick="sayfaGit('cop_kutusu')" title="Çöp Kutusu" style="flex:1;padding:7px;background:rgba(255,255,255,.08);border:none;border-radius:8px;color:#94a3b8;font-size:16px;cursor:pointer">🗑️</button>
     </div>
-    <div style="display:flex;gap:4px;padding:0 8px 8px">
-      <button id="btn-geri" onclick="geriAl()" title="Geri Al (Ctrl+Z)" style="flex:1;padding:8px;background:rgba(255,255,255,.06);border:none;border-radius:8px;color:#475569;font-size:18px;cursor:pointer;transition:all .2s" onmouseover="this.style.background='rgba(255,255,255,.15)'" onmouseout="this.style.background='rgba(255,255,255,.06)'">◀</button>
-      <button id="btn-ileri" onclick="ileriAl()" title="İleri Al (Ctrl+Y)" style="flex:1;padding:8px;background:rgba(255,255,255,.06);border:none;border-radius:8px;color:#475569;font-size:18px;cursor:pointer;transition:all .2s" onmouseover="this.style.background='rgba(255,255,255,.15)'" onmouseout="this.style.background='rgba(255,255,255,.06)'">▶</button>
-    </div>
+
     <nav id="nav" style="flex:1;overflow-y:auto"></nav>
     <div class="sidebar-alt">
       <div id="kullanici-bilgi" class="kullanici-bilgi"></div>
     <div id="son-guncelleme-lbl" style="padding:0 12px 6px;font-size:10px;color:#475569;"></div>
+      <div style="display:flex;gap:4px;padding:4px 0">
+        <button id="btn-geri" onclick="geriAl()" title="Geri Al (Ctrl+Z)" style="flex:1;padding:8px;background:rgba(255,255,255,.06);border:none;border-radius:8px;color:#475569;font-size:16px;cursor:pointer;transition:all .2s">◀ Geri</button>
+        <button id="btn-ileri" onclick="ileriAl()" title="İleri Al (Ctrl+Y)" style="flex:1;padding:8px;background:rgba(255,255,255,.06);border:none;border-radius:8px;color:#475569;font-size:16px;cursor:pointer;transition:all .2s">İleri ▶</button>
+      </div>
       <button class="cikis-btn" onclick="cikisYap()">🚪 Çıkış Yap</button>
     </div>
   </div>
@@ -525,7 +526,9 @@ const sayfalar = {
           <button class="btn btn-ana" onclick="ozetYenile()">Filtrele</button>
         </div>
       </div>
-      <div id="ozet-kartlar"></div>`;
+      <div id="vade-uyarilar"></div>
+      <div id="ozet-kartlar"></div>
+      <div class="kart-grid kart-grid-2" style="margin-top:16px"><div class="kart"><div class="k-baslik" style="margin-bottom:8px">📊 Gider Dağılımı</div><canvas id="pasta-grafik" style="width:100%;height:220px"></canvas></div><div class="kart"><div class="k-baslik" style="margin-bottom:8px">📈 Son 6 Ay Trendi</div><canvas id="trend-grafik" style="width:100%;height:220px"></canvas></div></div>`;
 
     await ozetYenile();
   },
@@ -1108,6 +1111,105 @@ async function ozetYenile() {
 
   const el = document.getElementById('ozet-kartlar');
   if (el) el.innerHTML = html;
+
+  // Vade uyarilari
+  try {
+    const vade = await api('/vade-uyarilari');
+    const vadeEl = document.getElementById('vade-uyarilar');
+    if (vade && vadeEl) {
+      let vh = '';
+      if (vade.gecmis && vade.gecmis.length) {
+        vh += '<div class="kart" style="margin-bottom:8px;border:2px solid var(--kirmizi);background:#fef2f2">' +
+          '<div style="font-weight:700;color:var(--kirmizi);margin-bottom:6px">🚨 Vadesi Geçmiş Çekler ('+vade.gecmis.length+')</div>' +
+          vade.gecmis.map(function(c){return '<div style="font-size:13px;padding:3px 0">'+c.musteri_adi+' — <strong>'+para(c.tutar)+'</strong> <span style="color:var(--kirmizi)">Vade: '+c.vade+'</span></div>';}).join('') + '</div>';
+      }
+      if (vade.bugun && vade.bugun.length) {
+        vh += '<div class="kart" style="margin-bottom:8px;border:2px solid var(--turuncu);background:#fffbeb">' +
+          '<div style="font-weight:700;color:var(--turuncu);margin-bottom:6px">⚠️ Bugün Vadeli ('+vade.bugun.length+')</div>' +
+          vade.bugun.map(function(c){return '<div style="font-size:13px;padding:3px 0">'+c.musteri_adi+' — <strong>'+para(c.tutar)+'</strong></div>';}).join('') + '</div>';
+      }
+      if (vade.hafta && vade.hafta.length) {
+        vh += '<div class="kart" style="margin-bottom:8px;border:2px solid #3b82f6;background:#eff6ff">' +
+          '<div style="font-weight:700;color:#3b82f6;margin-bottom:6px">📅 Bu Hafta Vadeli ('+vade.hafta.length+')</div>' +
+          vade.hafta.map(function(c){return '<div style="font-size:13px;padding:3px 0">'+c.musteri_adi+' — <strong>'+para(c.tutar)+'</strong> <span style="color:var(--ikincil)">'+c.vade+'</span></div>';}).join('') + '</div>';
+      }
+      vadeEl.innerHTML = vh;
+    }
+  } catch(e) {}
+
+  // Dashboard grafikleri
+  setTimeout(async function() {
+    try {
+      var giderler = await api('/giderler');
+      if (giderler && giderler.length) {
+        var katToplam = {};
+        giderler.forEach(function(g) { katToplam[g.kategori] = (katToplam[g.kategori]||0) + (g.tutar||0); });
+        var items = Object.entries(katToplam).sort(function(a,b){return b[1]-a[1];});
+        var renkler = ['#e53e3e','#6c2bd9','#057a55','#d97706','#0891b2','#6b7280','#1a56db'];
+        var canvas = document.getElementById('pasta-grafik');
+        if (canvas) {
+          canvas.width = canvas.offsetWidth || 300; canvas.height = 200;
+          var ctx = canvas.getContext('2d');
+          var cx=100, cy=100, r=80, baslangic=-Math.PI/2;
+          var toplam = items.reduce(function(s,i){return s+i[1];},0);
+          items.forEach(function(item, idx) {
+            var aci = (item[1]/toplam) * Math.PI*2;
+            ctx.beginPath(); ctx.moveTo(cx,cy);
+            ctx.arc(cx,cy,r,baslangic,baslangic+aci);
+            ctx.fillStyle = renkler[idx % renkler.length]; ctx.fill();
+            baslangic += aci;
+          });
+          var ly = 10;
+          items.forEach(function(item, idx) {
+            ctx.fillStyle = renkler[idx % renkler.length];
+            ctx.fillRect(200, ly, 10, 10);
+            ctx.fillStyle = '#374151'; ctx.font = '11px Segoe UI';
+            ctx.fillText(item[0].substring(0,18) + ' ' + Math.round(item[1]).toLocaleString('tr-TR'), 215, ly+9);
+            ly += 18;
+          });
+        }
+      }
+      var yil2 = new Date().getFullYear();
+      var aylik2 = await api('/aylik?yil=' + yil2);
+      if (aylik2) {
+        var canvas2 = document.getElementById('trend-grafik');
+        if (canvas2) {
+          canvas2.width = canvas2.offsetWidth || 300; canvas2.height = 200;
+          var ctx2 = canvas2.getContext('2d');
+          var W=canvas2.width, H=200, SOL=50, SAG=10, UST=10, ALT=30;
+          var son6 = aylik2.filter(function(d){return d.gelir>0||d.gider>0;}).slice(-6);
+          if (son6.length >= 2) {
+            var n=son6.length, gw=W-SOL-SAG, gh=H-UST-ALT;
+            var vals=son6.flatMap(function(d){return [d.gelir,d.gider];});
+            var maks=Math.max.apply(null,vals)*1.15||1;
+            for(var i=0;i<=3;i++){
+              var yv=i*maks/3, yp=UST+gh-yv/maks*gh;
+              ctx2.strokeStyle='#e5e7eb'; ctx2.lineWidth=1;
+              ctx2.beginPath(); ctx2.moveTo(SOL,yp); ctx2.lineTo(W-SAG,yp); ctx2.stroke();
+              ctx2.fillStyle='#9ca3af'; ctx2.font='10px Segoe UI'; ctx2.textAlign='right';
+              ctx2.fillText(yv>=1000?(yv/1000).toFixed(0)+'K':yv.toFixed(0), SOL-4, yp+4);
+            }
+            ctx2.strokeStyle='#10b981'; ctx2.lineWidth=2.5; ctx2.beginPath();
+            son6.forEach(function(d,i){var x=SOL+i*gw/(n-1),y=UST+gh-d.gelir/maks*gh;i===0?ctx2.moveTo(x,y):ctx2.lineTo(x,y);}); ctx2.stroke();
+            ctx2.strokeStyle='#ef4444'; ctx2.lineWidth=2.5; ctx2.beginPath();
+            son6.forEach(function(d,i){var x=SOL+i*gw/(n-1),y=UST+gh-d.gider/maks*gh;i===0?ctx2.moveTo(x,y):ctx2.lineTo(x,y);}); ctx2.stroke();
+            son6.forEach(function(d,i){
+              var x=SOL+i*gw/(n-1);
+              ctx2.fillStyle='#10b981'; ctx2.beginPath(); ctx2.arc(x,UST+gh-d.gelir/maks*gh,3,0,Math.PI*2); ctx2.fill();
+              ctx2.fillStyle='#ef4444'; ctx2.beginPath(); ctx2.arc(x,UST+gh-d.gider/maks*gh,3,0,Math.PI*2); ctx2.fill();
+              ctx2.fillStyle='#6b7280'; ctx2.font='9px Segoe UI'; ctx2.textAlign='center';
+              ctx2.fillText(d.etiket.split(' ')[0], x, H-ALT+14);
+            });
+            ctx2.fillStyle='#10b981'; ctx2.fillRect(SOL,H-12,8,8);
+            ctx2.fillStyle='#374151'; ctx2.font='10px Segoe UI'; ctx2.textAlign='left';
+            ctx2.fillText('Tahsilat',SOL+12,H-5);
+            ctx2.fillStyle='#ef4444'; ctx2.fillRect(SOL+70,H-12,8,8);
+            ctx2.fillStyle='#374151'; ctx2.fillText('Gider',SOL+82,H-5);
+          }
+        }
+      }
+    } catch(e) { console.log('Grafik hatasi:', e); }
+  }, 300);
 }
 
 async function aylikYenile() {
@@ -2039,7 +2141,50 @@ async function musteriDetayYukle() {
       </tr>`).join('')}
       ${!mGel.length ? '<tr><td colspan="4" style="color:var(--ikincil);text-align:center;padding:16px">Tahsilat yok</td></tr>' : ''}
       </tbody></table>
-    </div>`;
+    </div>
+
+    <div class="section-baslik">💬 Notlar</div>
+    <div class="kart" style="margin-bottom:8px">
+      <div style="display:flex;gap:8px">
+        <input id="yeni-not-icerik" placeholder="Not ekleyin..." style="flex:1;padding:8px 12px;border:1px solid var(--kenar);border-radius:8px;font-size:13px">
+        <button class="btn btn-ana btn-sm" onclick="notEkle('musteriler',${mid})">Ekle</button>
+      </div>
+    </div>
+    <div id="not-listesi"></div>`;
+
+  // Notlari yukle
+  notlariYukle('musteriler', mid);
+}
+
+async function notlariYukle(tablo, hedefId) {
+  var notlar = await api('/notlar?hedef_tablo=' + tablo + '&hedef_id=' + hedefId);
+  var el = document.getElementById('not-listesi');
+  if (!el) return;
+  if (!notlar || !notlar.length) {
+    el.innerHTML = '<p style="color:var(--ikincil);font-size:12px;padding:8px">Henüz not yok</p>';
+    return;
+  }
+  el.innerHTML = notlar.map(function(n) {
+    return '<div class="kart" style="margin-bottom:6px;padding:10px 14px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:start">' +
+      '<div><div style="font-size:13px">' + n.icerik + '</div>' +
+      '<div style="font-size:11px;color:var(--ikincil);margin-top:4px">' + (n.yazan||'') + ' — ' + (n.tarih||'') + '</div></div>' +
+      (isAdmin() ? '<button class="btn btn-kirmizi btn-sm" onclick="notSil('+n.id+',\''+tablo+'\','+hedefId+')">Sil</button>' : '') +
+      '</div></div>';
+  }).join('');
+}
+
+async function notEkle(tablo, hedefId) {
+  var icerik = document.getElementById('yeni-not-icerik');
+  if (!icerik || !icerik.value.trim()) { alert('Not boş olamaz'); return; }
+  var r = await api('/notlar', 'POST', {hedef_tablo: tablo, hedef_id: hedefId, icerik: icerik.value.trim()});
+  if (r) { icerik.value = ''; notlariYukle(tablo, hedefId); }
+}
+
+async function notSil(id, tablo, hedefId) {
+  if (!confirm('Bu notu silmek istiyor musunuz?')) return;
+  await api('/notlar/' + id, 'DELETE');
+  notlariYukle(tablo, hedefId);
 }
 
 function musteriExcel() {
