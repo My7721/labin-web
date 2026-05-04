@@ -506,7 +506,8 @@ def musteri_guncelle(mid: int, data: MusteriModel, token=Depends(admin_kontrol))
 @app.delete("/musteriler/{mid}")
 def musteri_sil(mid: int, token=Depends(admin_kontrol)):
     conn = get_db()
-    conn.execute("DELETE FROM musteriler WHERE id=?", (mid,))
+    c = conn.cursor()
+    c.execute(adapt_sql("DELETE FROM musteriler WHERE id=?"), (mid,))
     conn.commit(); conn.close()
     return {"mesaj": "Silindi"}
 
@@ -570,7 +571,8 @@ def numune_durum(nid: int, data: DurumModel, token=Depends(admin_kontrol)):
 @app.delete("/numuneler/{nid}")
 def numune_sil(nid: int, token=Depends(admin_kontrol)):
     conn = get_db()
-    conn.execute("DELETE FROM numuneler WHERE id=?", (nid,))
+    c = conn.cursor()
+    c.execute(adapt_sql("DELETE FROM numuneler WHERE id=?"), (nid,))
     conn.commit(); conn.close()
     return {"mesaj": "Silindi"}
 
@@ -603,7 +605,8 @@ def gelir_ekle(data: GelirModel, token=Depends(admin_kontrol)):
 @app.delete("/gelirler/{gid}")
 def gelir_sil(gid: int, token=Depends(admin_kontrol)):
     conn = get_db()
-    conn.execute("DELETE FROM gelirler WHERE id=?", (gid,))
+    c = conn.cursor()
+    c.execute(adapt_sql("DELETE FROM gelirler WHERE id=?"), (gid,))
     conn.commit(); conn.close()
     return {"mesaj": "Silindi"}
 
@@ -636,7 +639,8 @@ def gider_ekle(data: GiderModel, token=Depends(admin_kontrol)):
 @app.delete("/giderler/{gid}")
 def gider_sil(gid: int, token=Depends(admin_kontrol)):
     conn = get_db()
-    conn.execute("DELETE FROM giderler WHERE id=?", (gid,))
+    c = conn.cursor()
+    c.execute(adapt_sql("DELETE FROM giderler WHERE id=?"), (gid,))
     conn.commit(); conn.close()
     return {"mesaj": "Silindi"}
 
@@ -677,7 +681,8 @@ def personel_guncelle(pid: int, data: PersonelModel, token=Depends(admin_kontrol
 @app.delete("/personeller/{pid}")
 def personel_sil(pid: int, token=Depends(admin_kontrol)):
     conn = get_db()
-    conn.execute("DELETE FROM personeller WHERE id=?", (pid,))
+    c = conn.cursor()
+    c.execute(adapt_sql("DELETE FROM personeller WHERE id=?"), (pid,))
     conn.commit(); conn.close()
     return {"mesaj": "Silindi"}
 
@@ -717,7 +722,8 @@ def cek_durum(cid: int, data: DurumModel, token=Depends(admin_kontrol)):
 @app.delete("/cek-senetler/{cid}")
 def cek_sil(cid: int, token=Depends(admin_kontrol)):
     conn = get_db()
-    conn.execute("DELETE FROM cek_senetler WHERE id=?", (cid,))
+    c = conn.cursor()
+    c.execute(adapt_sql("DELETE FROM cek_senetler WHERE id=?"), (cid,))
     conn.commit(); conn.close()
     return {"mesaj": "Silindi"}
 
@@ -749,7 +755,8 @@ def beton_ekle(data: BetonProgramModel, token=Depends(admin_kontrol)):
 @app.delete("/beton-programi/{bid}")
 def beton_sil(bid: int, token=Depends(admin_kontrol)):
     conn = get_db()
-    conn.execute("DELETE FROM beton_programi WHERE id=?", (bid,))
+    c = conn.cursor()
+    c.execute(adapt_sql("DELETE FROM beton_programi WHERE id=?"), (bid,))
     conn.commit(); conn.close()
     return {"mesaj": "Silindi"}
 
