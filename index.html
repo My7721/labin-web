@@ -1025,7 +1025,8 @@ async function ozetYenile() {
     <div class="kart-grid kart-grid-4" style="margin-bottom:16px">
       <div class="kart" onclick="sayfaGit('aylik')" style="cursor:pointer">
         <div class="k-baslik">Net Kâr</div>
-        <div class="k-deger" style="color:${d.net_kar>=0?'var(--yesil)':'var(--kirmizi)'}">${para(d.net_kar)}</div>
+        <div class="k-deger" style="color:${(d.tahsilat-d.gider_toplam)>=0?'var(--yesil)':'var(--kirmizi)'}">${para(d.tahsilat - d.gider_toplam)}</div>
+        <div style="font-size:11px;color:var(--ikincil);margin-top:2px">Tahsilat - Gider</div>
       </div>
       <div class="kart" onclick="sayfaGit('cek_senet')" style="cursor:pointer">
         <div class="k-baslik">Çek / Senet</div>
@@ -1137,6 +1138,27 @@ async function aylikYenile() {
       ctx.beginPath(); ctx.arc(p.x,p.y,4,0,Math.PI*2); ctx.fill();
     });
   }, 100);
+}
+
+function hizliFiltre(tip) {
+  const bugun = new Date();
+  const bugunStr = bugun.toISOString().split('T')[0];
+  let bas, bit;
+  ['bugun','ay','yil','tumü'].forEach(t => {
+    const btn = document.getElementById('hizli-'+t);
+    if (btn) { btn.style.background = '#f1f5f9'; btn.style.color = 'var(--metin)'; btn.style.border = '1px solid var(--kenar)'; }
+  });
+  const aktif = document.getElementById('hizli-'+tip);
+  if (aktif) { aktif.style.background = 'var(--ana)'; aktif.style.color = '#fff'; aktif.style.border = 'none'; }
+  if (tip === 'bugun') { bas = bit = bugunStr; }
+  else if (tip === 'ay') { bas = new Date(bugun.getFullYear(), bugun.getMonth(), 1).toISOString().split('T')[0]; bit = bugunStr; }
+  else if (tip === 'yil') { bas = new Date(bugun.getFullYear(), 0, 1).toISOString().split('T')[0]; bit = bugunStr; }
+  else { bas = '2020-01-01'; bit = bugunStr; }
+  const basEl = document.getElementById('ozet-bas');
+  const bitEl = document.getElementById('ozet-bit');
+  if (basEl) basEl.value = bas;
+  if (bitEl) bitEl.value = bit;
+  ozetYenile();
 }
 
 function ozetSifirla() {
@@ -1433,40 +1455,92 @@ function giderEkleModal() {
   });
 }
 
-function giderFiltrele(katId) {
-  const giderler = window._tumGiderler || [];
-  const kategoriler = window._giderKategoriler || [];
-  // Buton stilleri
-  kategoriler.forEach(k => {
-    const btn = document.getElementById('gfilt-'+k.id);
-    if (!btn) return;
-    if (k.id === katId) {
-      btn.style.background = k.renk; btn.style.color = '#fff'; btn.style.border = 'none';
-    } else {
-      btn.style.background = '#f1f5f9'; btn.style.color = 'var(--metin)'; btn.style.border = '1px solid var(--kenar)';
+function giderYenile() {
+  const bas = document.getElementById('gider-bas')?.value || '';
+  const bit = document.getElementById('gider-bit')?.value || '';
+  let giderler = window._tumGiderler || [];
+  if (bas && bit) giderler = giderler.filter(g => g.tarih >= bas && g.tarih <= bit);
+  window._filtreliGiderler = giderler;
+
+  // Kategori buton toplamlari guncelle
+  const katlar = window._giderKatlar || [];
+  katlar.forEach(k => {
+    if (k.id === 'tumu') return;
+    const kat_giderler = giderler.filter(g => g.kategori && g.kategori.includes(k.label));
+    const toplam = kat_giderler.reduce((s,g) => s+(g.tutar||0), 0);
+    const btn = document.getElementById('gkbt-'+k.id);
+    if (btn) {
+      const lbl = k.emoji + ' ' + k.label + (toplam > 0 ? ' · ' + para(toplam) : '');
+      btn.innerHTML = lbl;
     }
   });
-  const filtreli = katId === 'tumu' ? giderler
-    : giderler.filter(g => {
-        if (katId === 'arac') return g.kategori && g.kategori.includes('Araç');
-        if (katId === 'sanayi') return g.kategori && g.kategori.includes('Sanayi');
-        if (katId === 'maas') return g.kategori && g.kategori.includes('Personel');
-        if (katId === 'malzeme') return g.kategori && g.kategori.includes('Malzeme');
-        if (katId === 'fatura') return g.kategori && g.kategori.includes('Fatura');
-        if (katId === 'diger') return g.kategori && g.kategori.includes('Diğer');
-        return true;
-      });
+  // Tumu butonu
+  const tumToplam = giderler.reduce((s,g) => s+(g.tutar||0), 0);
+  const tumBtn = document.getElementById('gkbt-tumu');
+  if (tumBtn) tumBtn.innerHTML = '📊 Tümü · ' + para(tumToplam);
+
+  giderFiltrele(window._aktifGiderKat || 'tumu');
+}
+
+function giderFiltrele(katId) {
+  window._aktifGiderKat = katId;
+  const giderler = window._filtreliGiderler || window._tumGiderler || [];
+  const katlar = window._giderKatlar || [];
+  // Buton stilleri
+  katlar.forEach(k => {
+    const btn = document.getElementById('gkbt-'+k.id);
+    if (!btn) return;
+    if (k.id === katId) {
+      btn.style.background = k.renk === 'var(--ana)' ? 'var(--ana)' : k.renk;
+      btn.style.color = '#fff';
+      btn.style.borderColor = k.renk === 'var(--ana)' ? 'var(--ana)' : k.renk;
+    } else {
+      btn.style.background = '#fff';
+      btn.style.color = '#374151';
+      btn.style.borderColor = '#e5e7eb';
+    }
+  });
+
+  const filtreli = katId === 'tumu' ? giderler : giderler.filter(g => {
+    const k = katlar.find(k => k.id === katId);
+    return k && g.kategori && g.kategori.includes(k.label);
+  });
+
   const toplam = filtreli.reduce((s,g) => s+(g.tutar||0), 0);
+  const lbl = katlar.find(k=>k.id===katId);
   const isAdm = isAdmin();
-  const tbody = document.getElementById('gider-tbody');
-  if (tbody) tbody.innerHTML = filtreli.map(g => `<tr>
-    <td>${g.tarih}</td><td>${g.kategori||''}</td><td>${g.aciklama||''}</td>
-    <td>${g.arac||''}</td>
-    <td style="color:var(--kirmizi);font-weight:600">${para(g.tutar)}</td>
-    ${isAdm ? `<td><button class="btn btn-kirmizi btn-sm" onclick="giderSil(${g.id})">Sil</button></td>` : ''}
-  </tr>`).join('');
+
+  const lblEl = document.getElementById('gider-filtre-lbl');
+  if (lblEl) lblEl.textContent = (lbl ? lbl.emoji+' '+lbl.label : '') + ' — ' + filtreli.length + ' kayıt';
   const tot = document.getElementById('gider-toplam');
-  if (tot) tot.textContent = `${filtreli.length} kayıt · ${para(toplam)}`;
+  if (tot) tot.textContent = para(toplam);
+
+  // Plaka kartlari
+  const plakaToplam = {};
+  filtreli.filter(g=>g.arac).forEach(g => {
+    plakaToplam[g.arac] = (plakaToplam[g.arac]||0)+(g.tutar||0);
+  });
+  const plakaDiv = document.getElementById('gider-plaka-kartlar');
+  if (plakaDiv) {
+    if (Object.keys(plakaToplam).length) {
+      plakaDiv.innerHTML = '<div style="font-size:12px;color:var(--ikincil);margin-bottom:6px">🚗 Araç Bazlı</div>' +
+        '<div class="kart-grid kart-grid-4">' +
+        Object.entries(plakaToplam).sort((a,b)=>b[1]-a[1]).map(([p,t])=>
+          '<div class="kart" onclick="giderFiltreleArac(\''+p+'\')" style="cursor:pointer">' +
+          '<div class="k-baslik">🚗 '+p+'</div>' +
+          '<div class="k-deger" style="color:var(--kirmizi);font-size:16px">'+para(t)+'</div></div>'
+        ).join('') + '</div>';
+    } else plakaDiv.innerHTML = '';
+  }
+
+  const tbody = document.getElementById('gider-tbody');
+  if (tbody) tbody.innerHTML = filtreli.map(g =>
+    '<tr><td>'+g.tarih+'</td><td>'+(g.kategori||'')+'</td><td>'+(g.aciklama||'')+'</td>' +
+    '<td>'+(g.arac?'<span style="background:#f1f5f9;padding:2px 8px;border-radius:6px;font-size:12px">'+g.arac+'</span>':'')+'</td>' +
+    '<td style="color:var(--kirmizi);font-weight:600">'+para(g.tutar)+'</td>' +
+    (isAdm?'<td><button class="btn btn-kirmizi btn-sm" onclick="giderSil('+g.id+')">Sil</button></td>':'') +
+    '</tr>'
+  ).join('');
 }
 
 function giderFiltreleArac(plaka) {
@@ -1484,9 +1558,9 @@ function giderFiltreleArac(plaka) {
   const tot = document.getElementById('gider-toplam');
   if (tot) tot.textContent = `🚗 ${plaka} · ${para(toplam)}`;
   // Tum kategori butonlarini sifirla
-  (window._giderKategoriler||[]).forEach(k => {
-    const btn = document.getElementById('gfilt-'+k.id);
-    if (btn) { btn.style.background = '#f1f5f9'; btn.style.color = 'var(--metin)'; btn.style.border = '1px solid var(--kenar)'; }
+  (window._giderKatlar||[]).forEach(k => {
+    const btn = document.getElementById('gkbt-'+k.id);
+    if (btn) { btn.style.background='#fff'; btn.style.color='#374151'; btn.style.borderColor='#e5e7eb'; }
   });
 }
 
