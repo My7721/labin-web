@@ -1491,23 +1491,88 @@ function giderFiltreleArac(plaka) {
 }
 
 function giderKatSec(id, label, renk) {
-  // Tum butonlari sifirla
   document.querySelectorAll('[id^="gikat-"]').forEach(b => {
     b.style.background = '#f8fafc';
     b.style.color = '#374151';
-    b.style.borderColor = '#e5e7eb';
+    b.style.border = '2px solid #e5e7eb';
   });
-  // Secili butonu vurgula
   const btn = document.getElementById('gikat-'+id);
-  if (btn) {
-    btn.style.background = renk;
-    btn.style.color = '#fff';
-    btn.style.borderColor = renk;
-  }
-  document.getElementById('gi-kat').value = label;
-  // Arac gideriyse plaka alani goster
+  if (btn) { btn.style.background = renk; btn.style.color = '#fff'; btn.style.border = '2px solid '+renk; }
+
+  const labels = {benzin:'Benzin / Mazot', sanayi:'Sanayi Gideri', maas:'Personel Maaşları',
+    malzeme:'Malzeme Gideri', fatura:'Fatura Giderleri', diger:'Diğer'};
+  document.getElementById('gi-kat').value = labels[id] || label;
+
   const aracDiv = document.getElementById('gi-arac-div');
-  if (aracDiv) aracDiv.style.display = id === 'arac' ? '' : 'none';
+  if (aracDiv) aracDiv.style.display = (id === 'benzin' || id === 'sanayi') ? '' : 'none';
+  const lbl = document.getElementById('gi-arac-lbl');
+  if (lbl) lbl.textContent = id === 'sanayi' ? 'Araç / Makine' : 'Araç Plakası';
+}
+
+function plakaYonetModal() {
+  const araclar = window._giderAraclar || [];
+  const listeHtml = araclar.length
+    ? araclar.map(a =>
+        '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--kenar)">' +
+        '<span>🚗 <strong>'+a.plaka+'</strong> '+(a.model?'— '+a.model:'')+'</span>' +
+        '<button class="btn btn-kirmizi btn-sm" onclick="plakaSil('+a.id+')">Sil</button></div>'
+      ).join('')
+    : '<p style="color:var(--ikincil);font-size:13px">Henüz araç eklenmedi</p>';
+
+  modal('🚗 Plaka Yönetimi',
+    '<div style="margin-bottom:12px">' +
+    '<div class="form-row">' +
+    '<div class="form-grup"><label>Plaka</label><input id="yeni-plaka" placeholder="34 ABC 123" style="text-transform:uppercase"></div>' +
+    '<div class="form-grup"><label>Model (opsiyonel)</label><input id="yeni-model" placeholder="Ford Transit"></div>' +
+    '</div>' +
+    '<button class="btn btn-ana btn-sm" onclick="plakaEkle()">+ Ekle</button>' +
+    '</div>' +
+    '<div id="plaka-listesi">' + listeHtml + '</div>',
+    () => { sayfalar.gider(); });
+}
+
+function plakaListesiGuncelle(araclar) {
+  const liste = document.getElementById('plaka-listesi');
+  if (!liste) return;
+  liste.innerHTML = (araclar||[]).length
+    ? (araclar||[]).map(a =>
+        '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--kenar)">' +
+        '<span>🚗 <strong>'+a.plaka+'</strong> '+(a.model?'— '+a.model:'')+'</span>' +
+        '<button class="btn btn-kirmizi btn-sm" onclick="plakaSil('+a.id+')">Sil</button></div>'
+      ).join('')
+    : '<p style="color:var(--ikincil);font-size:13px">Henüz araç eklenmedi</p>';
+}
+
+async function plakaEkle() {
+  const plaka = document.getElementById('yeni-plaka')?.value.trim().toUpperCase();
+  const model = document.getElementById('yeni-model')?.value.trim() || '';
+  if (!plaka) { alert('Plaka zorunludur!'); return; }
+  const r = await fetch(API + '/araclar-ekle', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+token},
+    body: JSON.stringify({plaka, model})
+  });
+  if (r.ok) {
+    const araclar = await api('/araclar');
+    window._giderAraclar = araclar || [];
+    plakaListesiGuncelle(araclar);
+    document.getElementById('yeni-plaka').value = '';
+    document.getElementById('yeni-model').value = '';
+    // Gider modal plaka dropdown'ını da guncelle
+    const sel = document.getElementById('gi-arac');
+    if (sel) {
+      sel.innerHTML = '<option value="">-- Plaka Seçin --</option>' +
+        (araclar||[]).map(a=>'<option value="'+a.plaka+'">'+a.plaka+(a.model?' - '+a.model:'')+'</option>').join('');
+    }
+  } else { alert('Plaka eklenemedi!'); }
+}
+
+async function plakaSil(id) {
+  if (!confirm('Bu aracı silmek istiyor musunuz?')) return;
+  await api('/araclar/' + id, 'DELETE');
+  const araclar = await api('/araclar');
+  window._giderAraclar = araclar || [];
+  plakaListesiGuncelle(araclar);
 }
 
 async function giderSil(id) {
