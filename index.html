@@ -1332,32 +1332,70 @@ async function gelirSil(id) {
 
 // ── GİDER ────────────────────────────────────────────────────────────────────
 function giderEkleModal() {
+  const kategoriler = [
+    {id:'arac', label:'🚗 Araç Gideri', renk:'#1a56db'},
+    {id:'sanayi', label:'🏭 Sanayi Gideri', renk:'#6c2bd9'},
+    {id:'maas', label:'👷 Personel Maaşları', renk:'#057a55'},
+    {id:'malzeme', label:'📦 Malzeme Gideri', renk:'#d97706'},
+    {id:'fatura', label:'📄 Fatura Giderleri', renk:'#0891b2'},
+    {id:'diger', label:'📌 Diğer', renk:'#6b7280'},
+  ];
+
   modal('Gider Ekle', `
     <div class="form-grup"><label>Tarih *</label><input type="date" id="gi-tarih" value="${tarihBugun()}"></div>
-    <div class="form-grup"><label>Kategori</label>
-      <select id="gi-kat">
-        ${['Personel Maaşları','Mazot / Benzin Gideri','Fatura Giderleri','Sanayi Giderleri','Diğer Giderler']
-          .map(k=>`<option>${k}</option>`).join('')}
-      </select>
+    <div class="form-grup">
+      <label>Kategori *</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px" id="gi-kat-btns">
+        ${kategoriler.map(k=>`
+          <button type="button" onclick="giderKatSec('${k.id}','${k.label}','${k.renk}')"
+            id="gikat-${k.id}"
+            style="padding:8px 14px;border-radius:8px;border:2px solid #e5e7eb;background:#f8fafc;
+                   color:#374151;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s">
+            ${k.label}
+          </button>`).join('')}
+      </div>
+      <input type="hidden" id="gi-kat" value="">
     </div>
-    <div class="form-grup"><label>Açıklama *</label><input id="gi-ac"></div>
+    <div class="form-grup"><label>Açıklama *</label><input id="gi-ac" placeholder="Detay giriniz..."></div>
     <div class="form-row">
       <div class="form-grup"><label>Tutar (₺) *</label><input type="number" id="gi-tutar" placeholder="0"></div>
-      <div class="form-grup"><label>Araç</label><input id="gi-arac" placeholder="Plaka veya araç"></div>
+      <div class="form-grup" id="gi-arac-div" style="display:none"><label>Araç / Plaka</label><input id="gi-arac" placeholder="34 ABC 123"></div>
     </div>
   `, async () => {
     const ac = document.getElementById('gi-ac').value.trim();
     const tutar = +document.getElementById('gi-tutar').value;
+    const kat = document.getElementById('gi-kat').value;
+    if (!kat) { alert('Lütfen bir kategori seçin!'); return; }
     if (!ac) { alert('Açıklama zorunludur!'); return; }
     if (!tutar) { alert('Tutar zorunludur!'); return; }
     const r = await api('/giderler', 'POST', {
       tarih: document.getElementById('gi-tarih').value,
-      kategori: document.getElementById('gi-kat').value,
+      kategori: kat,
       aciklama: ac, tutar,
-      arac: document.getElementById('gi-arac').value,
+      arac: document.getElementById('gi-arac')?.value || '',
     });
     if (r) { modalKapat(); sayfalar.gider(); }
   });
+}
+
+function giderKatSec(id, label, renk) {
+  // Tum butonlari sifirla
+  document.querySelectorAll('[id^="gikat-"]').forEach(b => {
+    b.style.background = '#f8fafc';
+    b.style.color = '#374151';
+    b.style.borderColor = '#e5e7eb';
+  });
+  // Secili butonu vurgula
+  const btn = document.getElementById('gikat-'+id);
+  if (btn) {
+    btn.style.background = renk;
+    btn.style.color = '#fff';
+    btn.style.borderColor = renk;
+  }
+  document.getElementById('gi-kat').value = label;
+  // Arac gideriyse plaka alani goster
+  const aracDiv = document.getElementById('gi-arac-div');
+  if (aracDiv) aracDiv.style.display = id === 'arac' ? '' : 'none';
 }
 
 async function giderSil(id) {
