@@ -1332,28 +1332,25 @@ async function gelirSil(id) {
 
 // ── GİDER ────────────────────────────────────────────────────────────────────
 function giderEkleModal() {
-  const kategoriler = [
-    {id:'arac', label:'🚗 Araç Gideri', renk:'#1a56db'},
-    {id:'sanayi', label:'🏭 Sanayi Gideri', renk:'#6c2bd9'},
-    {id:'maas', label:'👷 Personel Maaşları', renk:'#057a55'},
-    {id:'malzeme', label:'📦 Malzeme Gideri', renk:'#d97706'},
-    {id:'fatura', label:'📄 Fatura Giderleri', renk:'#0891b2'},
-    {id:'diger', label:'📌 Diğer', renk:'#6b7280'},
+  const btnler = [
+    ['arac','🚗 Araç Gideri','#1a56db'],
+    ['sanayi','🏭 Sanayi Gideri','#6c2bd9'],
+    ['maas','👷 Personel Maaşları','#057a55'],
+    ['malzeme','📦 Malzeme Gideri','#d97706'],
+    ['fatura','📄 Fatura Giderleri','#0891b2'],
+    ['diger','📌 Diğer','#6b7280'],
   ];
+  const btnHTML = btnler.map(([id,lbl,renk]) => {
+    return "<button type='button' onclick='giderKatSec(" + JSON.stringify(id) + "," + JSON.stringify(lbl) + "," + JSON.stringify(renk) + ")' id='gikat-" + id + "' " +
+    "style='padding:8px 14px;border-radius:8px;border:2px solid #e5e7eb;background:#f8fafc;" +
+    "color:#374151;font-size:13px;font-weight:600;cursor:pointer'>" + lbl + "</button>";
+  }).join('');
 
   modal('Gider Ekle', `
     <div class="form-grup"><label>Tarih *</label><input type="date" id="gi-tarih" value="${tarihBugun()}"></div>
     <div class="form-grup">
       <label>Kategori *</label>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px" id="gi-kat-btns">
-        ${kategoriler.map(k=>`
-          <button type="button" onclick="giderKatSec('${k.id}','${k.label}','${k.renk}')"
-            id="gikat-${k.id}"
-            style="padding:8px 14px;border-radius:8px;border:2px solid #e5e7eb;background:#f8fafc;
-                   color:#374151;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s">
-            ${k.label}
-          </button>`).join('')}
-      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">${btnHTML}</div>
       <input type="hidden" id="gi-kat" value="">
     </div>
     <div class="form-grup"><label>Açıklama *</label><input id="gi-ac" placeholder="Detay giriniz..."></div>
