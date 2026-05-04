@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Labin Lab">
 <meta name="theme-color" content="#1e3a5f">
-<link rel="manifest" href="/manifest.json">
+
 <style>
 :root {
   --ana: #1a56db; --yesil: #057a55; --kirmizi: #c81e1e;
@@ -2075,9 +2075,11 @@ if (token && aktifKullanici) {
   baslatUygulama();
 }
 
-// PWA Service Worker kayit
+// Service worker'i temizle - cache sorunlarini onlemek icin
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => r.unregister());
+  });
 }
 </script>
 </body>
