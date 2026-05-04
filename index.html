@@ -106,6 +106,7 @@ tr.beklem td { color: var(--metin); }
 .btn-yesil { background: var(--yesil); color: #fff; }
 .btn-kirmizi { background: var(--kirmizi); color: #fff; }
 .btn-gri { background: #374151; color: #fff; }
+.btn-turuncu { background: #d97706; color: #fff; }
 .btn-sm { padding: 5px 12px; font-size: 12px; }
 /* TOOLBAR */
 .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
@@ -246,10 +247,7 @@ tr.beklem td { color: var(--metin); }
     <div class="logo" style="font-size:16px;padding-top:4px">Labin Yapı Lab</div>
     <div class="logo-sub">Yönetim Sistemi</div>
     <button onclick="aramaAc()" style="margin:4px 8px 8px;padding:9px 12px;background:rgba(255,255,255,.1);border:none;border-radius:8px;color:#cbd5e1;font-size:13px;cursor:pointer;text-align:left;width:calc(100% - 16px)">🔍  Ara...</button>
-    <div style="display:flex;gap:4px;padding:0 8px 8px">
-      <button onclick="sonIslemGeriAl()" title="Son silmeyi geri al" style="flex:1;padding:7px;background:rgba(255,255,255,.08);border:none;border-radius:8px;color:#94a3b8;font-size:16px;cursor:pointer">↩️</button>
-      <button onclick="sayfaGit('cop_kutusu')" title="Çöp Kutusu" style="flex:1;padding:7px;background:rgba(255,255,255,.08);border:none;border-radius:8px;color:#94a3b8;font-size:16px;cursor:pointer">🗑️</button>
-    </div>
+
 
     <nav id="nav" style="flex:1;overflow-y:auto"></nav>
     <div class="sidebar-alt">
@@ -772,6 +770,7 @@ const sayfalar = {
       <div class="toolbar">
         ${isAdmin() ? '<button class="btn btn-ana" onclick="cekEkleModal()">+ Çek / Senet Ekle</button>' : ''}
         ${isAdmin() ? '<button class="btn btn-yesil btn-sm" onclick="cekDurumDegistir(\'Tahsil Edildi\')">✓ Tahsil Edildi</button>' : ''}
+        ${isAdmin() ? '<button class="btn btn-turuncu btn-sm" onclick="cekDurumDegistir(\'Beklemede\')">⏳ Beklemede</button>' : ''}
         ${isAdmin() ? '<button class="btn btn-kirmizi btn-sm" onclick="cekDurumDegistir(\'Karsilıksız\')">✗ Karşılıksız</button>' : ''}
         <span id="cek-toplam" style="margin-left:auto;font-weight:700;color:var(--mor)"></span>
       </div>
