@@ -920,24 +920,17 @@ async def manifest():
 async def service_worker():
     from fastapi.responses import Response
     sw_content = """
-const CACHE = 'labin-v1';
-const ASSETS = ['/'];
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
-  self.skipWaiting();
-});
+const CACHE = 'labin-v202605041756';
+self.addEventListener('install', e => { self.skipWaiting(); });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(keys =>
-    Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    Promise.all(keys.map(k => caches.delete(k)))
   ));
   self.clients.claim();
 });
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
-  if (e.request.url.includes('/giris') || e.request.url.includes('/api')) return;
-  e.respondWith(
-    fetch(e.request).catch(() => caches.match(e.request))
-  );
+  // Her zaman network'ten yukle, cache kullanma
+  e.respondWith(fetch(e.request).catch(() => new Response('Offline')));
 });
 """
     return Response(content=sw_content, media_type="application/javascript")
