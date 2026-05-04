@@ -246,6 +246,14 @@ tr.beklem td { color: var(--metin); }
     <div class="logo" style="font-size:16px;padding-top:4px">Labin Yapı Lab</div>
     <div class="logo-sub">Yönetim Sistemi</div>
     <button onclick="aramaAc()" style="margin:4px 8px 8px;padding:9px 12px;background:rgba(255,255,255,.1);border:none;border-radius:8px;color:#cbd5e1;font-size:13px;cursor:pointer;text-align:left;width:calc(100% - 16px)">🔍  Ara...</button>
+    <div style="display:flex;gap:4px;padding:0 8px 8px">
+      <button onclick="sonIslemGeriAl()" title="Son silmeyi geri al" style="flex:1;padding:7px;background:rgba(255,255,255,.08);border:none;border-radius:8px;color:#94a3b8;font-size:16px;cursor:pointer">↩️</button>
+      <button onclick="sayfaGit('cop_kutusu')" title="Çöp Kutusu" style="flex:1;padding:7px;background:rgba(255,255,255,.08);border:none;border-radius:8px;color:#94a3b8;font-size:16px;cursor:pointer">🗑️</button>
+    </div>
+    <div style="display:flex;gap:4px;padding:0 8px 8px">
+      <button onclick="sonIslemGeriAl()" title="Son silmeyi geri al" style="flex:1;padding:7px;background:rgba(255,255,255,.08);border:none;border-radius:8px;color:#94a3b8;font-size:16px;cursor:pointer;transition:background .2s" onmouseover="this.style.background='rgba(255,255,255,.15)'" onmouseout="this.style.background='rgba(255,255,255,.08)'">↩️ Geri Al</button>
+      <button onclick="sayfaGit('cop_kutusu')" title="Çöp Kutusu" style="flex:1;padding:7px;background:rgba(255,255,255,.08);border:none;border-radius:8px;color:#94a3b8;font-size:16px;cursor:pointer;transition:background .2s" onmouseover="this.style.background='rgba(255,255,255,.15)'" onmouseout="this.style.background='rgba(255,255,255,.08)'">🗑️ Çöp</button>
+    </div>
     <nav id="nav" style="flex:1;overflow-y:auto"></nav>
     <div class="sidebar-alt">
       <div id="kullanici-bilgi" class="kullanici-bilgi"></div>
@@ -909,30 +917,46 @@ const sayfalar = {
 
   // ÇÖP KUTUSU
   cop_kutusu: async () => {
+    const kayitlar = await api('/cop-kutusu');
+    if (!kayitlar) return;
+    const tabloAdlari = {numuneler:'🧪 Numune', gelirler:'💰 Gelir', giderler:'📤 Gider',
+      musteriler:'🏢 Müşteri', cek_senetler:'📋 Çek/Senet', personeller:'👷 Personel',
+      beton_programi:'🏗 Beton'};
     const ic = document.getElementById('sayfa-icerik');
     ic.innerHTML = `
       <div class="sayfa-baslik">🗑️ Çöp Kutusu</div>
-      <p style="color:var(--ikincil);margin-bottom:16px;font-size:13px">Son silme işlemini geri alabilirsiniz.</p>
-      <div class="kart" style="margin-bottom:12px">
-        <div style="display:flex;gap:12px;align-items:center;justify-content:center;padding:20px;flex-wrap:wrap">
-          <button class="btn btn-yesil" onclick="sonSilmeGeriAl()" id="geri-al-btn" style="display:none">
-            ↩️ Son Silmeyi Geri Al
-          </button>
-          <div id="cop-bilgi" style="color:var(--ikincil);font-size:13px;text-align:center">
-            ℹ️ Silme işlemi yaptığınızda burada geri alma seçeneği çıkacaktır.
-          </div>
-        </div>
+      <div class="toolbar">
+        ${isAdmin() && kayitlar.length ? `
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+            <input type="checkbox" id="cop-tumunu-sec" onchange="copTumunuSec(this.checked)"> Tümünü Seç
+          </label>
+          <button class="btn btn-yesil btn-sm" onclick="copGeriYukle()">↩️ Seçilenleri Geri Yükle</button>
+          <button class="btn btn-kirmizi btn-sm" onclick="copKaliciSil()">🗑️ Seçilenleri Kalıcı Sil</button>
+          <span style="margin-left:auto;font-size:13px;color:var(--ikincil)">${kayitlar.length} kayıt</span>
+        ` : ''}
       </div>
-      <div id="cop-detay"></div>`;
-
-    // Son silinen kaydı kontrol et
-    const sonSilme = window._sonSilinenKayit;
-    if (sonSilme) {
-      document.getElementById('geri-al-btn').style.display = '';
-      document.getElementById('cop-bilgi').innerHTML =
-        '<strong>Son silinen:</strong> ' + sonSilme.tip + ' — ' + (sonSilme.aciklama || sonSilme.firma || sonSilme.ad || 'Kayıt #'+sonSilme.id) +
-        '<br><small>Sayfayı kapatmadan geri alabilirsiniz</small>';
-    }
+      ${kayitlar.length ? `
+      <div class="tablo-wrap">
+        <table>
+          <thead><tr><th style="width:32px"></th><th>Tür</th><th>Açıklama</th><th>Silme Tarihi</th><th>İşlem</th></tr></thead>
+          <tbody>${kayitlar.map(k => {
+            const tip = tabloAdlari[k.tablo] || k.tablo;
+            return '<tr>' +
+              '<td><input type="checkbox" class="cop-cb" value="'+k.id+'"></td>' +
+              '<td><span class="badge badge-turuncu">'+tip+'</span></td>' +
+              '<td>'+( k.aciklama||'Kayıt #'+k.kayit_id)+'</td>' +
+              '<td style="font-size:12px;color:var(--ikincil)">'+(k.silme_tarihi||'')+'</td>' +
+              '<td>' +
+                '<button class="btn btn-yesil btn-sm" onclick="copTekGeriYukle('+k.id+')">↩️</button> ' +
+                '<button class="btn btn-kirmizi btn-sm" onclick="copTekSil('+k.id+')">🗑️</button>' +
+              '</td></tr>';
+          }).join('')}</tbody>
+        </table>
+      </div>` : `
+      <div class="kart" style="text-align:center;padding:40px">
+        <p style="color:var(--ikincil);font-size:14px">🗑️ Çöp kutusu boş</p>
+        <p style="color:var(--ikincil);font-size:12px;margin-top:8px">Sildiğiniz kayıtlar burada görünür</p>
+      </div>`}`;
   },
 
   // KDV BEYANNAMESİ
@@ -1367,7 +1391,6 @@ function numuneHesap() {
 
 async function numuneSil(id) {
   if (!confirm('Bu numuneyi silmek istiyor musunuz?')) return;
-  window._sonSilinenKayit = {tip: 'Numune', endpoint: '/numuneler', id};
   const r = await api(`/numuneler/${id}`, 'DELETE');
   if (r) sayfaGit(aktifSayfa);
 }
@@ -1418,7 +1441,6 @@ function gelirEkleModal() {
 
 async function gelirSil(id) {
   if (!confirm('Bu kaydı silmek istiyor musunuz?')) return;
-  window._sonSilinenKayit = {tip: 'Gelir/Tahsilat', endpoint: '/gelirler', id};
   const r = await api(`/gelirler/${id}`, 'DELETE');
   if (r) sayfalar.gelir();
 }
@@ -1670,10 +1692,6 @@ async function plakaSil(id) {
 
 async function giderSil(id) {
   if (!confirm('Bu kaydı silmek istiyor musunuz?')) return;
-  // Silmeden once kaydet (geri alma icin)
-  const giderler = window._tumGiderler || [];
-  const kayit = giderler.find(g => g.id === id);
-  if (kayit) window._sonSilinenKayit = {tip: 'Gider', endpoint: '/giderler', data: kayit, ...kayit};
   const r = await api(`/giderler/${id}`, 'DELETE');
   if (r) sayfalar.gider();
 }
@@ -2262,6 +2280,48 @@ async function sonSilmeGeriAl() {
   } else {
     alert('Geri alma başarısız oldu');
   }
+}
+
+async function sonIslemGeriAl() {
+  const kayitlar = await api('/cop-kutusu');
+  if (!kayitlar || !kayitlar.length) { alert('Geri alınacak işlem yok'); return; }
+  const son = kayitlar[0];
+  if (!confirm('Son silinen kaydı geri yüklemek istiyor musunuz?\n' + (son.aciklama||''))) return;
+  const r = await api('/cop-kutusu/' + son.id + '/geri-yukle', 'POST');
+  if (r) { alert('Geri yüklendi!'); sayfaGit(aktifSayfa); }
+}
+
+function copTumunuSec(checked) {
+  document.querySelectorAll('.cop-cb').forEach(cb => cb.checked = checked);
+}
+
+async function copGeriYukle() {
+  const secili = [...document.querySelectorAll('.cop-cb:checked')].map(cb => +cb.value);
+  if (!secili.length) { alert('Lütfen kayıt seçin'); return; }
+  if (!confirm(secili.length + ' kayıt geri yüklenecek. Onaylıyor musunuz?')) return;
+  for (const id of secili) { await api('/cop-kutusu/' + id + '/geri-yukle', 'POST'); }
+  alert('Kayıtlar geri yüklendi!');
+  sayfalar.cop_kutusu();
+}
+
+async function copKaliciSil() {
+  const secili = [...document.querySelectorAll('.cop-cb:checked')].map(cb => +cb.value);
+  if (!secili.length) { alert('Lütfen kayıt seçin'); return; }
+  if (!confirm(secili.length + ' kayıt kalıcı olarak silinecek! Bu işlem geri alınamaz.')) return;
+  for (const id of secili) { await api('/cop-kutusu/' + id, 'DELETE'); }
+  sayfalar.cop_kutusu();
+}
+
+async function copTekGeriYukle(id) {
+  if (!confirm('Bu kaydı geri yüklemek istiyor musunuz?')) return;
+  const r = await api('/cop-kutusu/' + id + '/geri-yukle', 'POST');
+  if (r) sayfalar.cop_kutusu();
+}
+
+async function copTekSil(id) {
+  if (!confirm('Bu kaydı kalıcı olarak silmek istiyor musunuz?')) return;
+  const r = await api('/cop-kutusu/' + id, 'DELETE');
+  if (r) sayfalar.cop_kutusu();
 }
 
 if (token && aktifKullanici) {
