@@ -817,10 +817,13 @@ const sayfalar = {
         <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
           <div style="flex:1;min-width:200px">
             <label style="font-size:12px;color:var(--ikincil);display:block;margin-bottom:4px">Müşteri Seç</label>
-            <select id="detay-musteri" onchange="musteriDetayYukle()" style="width:100%;padding:9px 12px;border:1px solid var(--kenar);border-radius:8px;font-size:14px">
-              <option value="">-- Müşteri Seçin --</option>
-              ${musteriler.map(m=>`<option value="${m.id}">${m.firma} (${m.tip})</option>`).join('')}
-            </select>
+            <input list="detay-musteri-list" id="detay-musteri-input" placeholder="Müşteri adı yazın veya seçin..."
+              style="width:100%;padding:9px 12px;border:1px solid var(--kenar);border-radius:8px;font-size:14px"
+              oninput="musteriDetayAra(this.value)">
+            <datalist id="detay-musteri-list">
+              ${musteriler.map(m=>'<option value="'+m.firma+'">'+m.firma+' ('+m.tip+')</option>').join('')}
+            </datalist>
+            <input type="hidden" id="detay-musteri" value="">
           </div>
           <div id="detay-exportler" style="display:none;margin-top:18px">
             <button class="btn btn-ana btn-sm" onclick="musteriPDF()">📄 PDF Rapor</button>
@@ -909,13 +912,27 @@ const sayfalar = {
     const ic = document.getElementById('sayfa-icerik');
     ic.innerHTML = `
       <div class="sayfa-baslik">🗑️ Çöp Kutusu</div>
-      <p style="color:var(--ikincil);margin-bottom:16px;font-size:13px">Silinen kayıtlar burada görünür. Geri yüklemek için seçin.</p>
+      <p style="color:var(--ikincil);margin-bottom:16px;font-size:13px">Son silme işlemini geri alabilirsiniz.</p>
       <div class="kart" style="margin-bottom:12px">
-        <p style="color:var(--ikincil);font-size:13px;text-align:center;padding:20px">
-          ℹ️ Çöp kutusu özelliği web versiyonunda silme işlemleri için henüz aktif değil.<br>
-          Yanlışlıkla silinen veriler için veritabanı yedeğinizden geri yükleme yapılabilir.
-        </p>
-      </div>`;
+        <div style="display:flex;gap:12px;align-items:center;justify-content:center;padding:20px;flex-wrap:wrap">
+          <button class="btn btn-yesil" onclick="sonSilmeGeriAl()" id="geri-al-btn" style="display:none">
+            ↩️ Son Silmeyi Geri Al
+          </button>
+          <div id="cop-bilgi" style="color:var(--ikincil);font-size:13px;text-align:center">
+            ℹ️ Silme işlemi yaptığınızda burada geri alma seçeneği çıkacaktır.
+          </div>
+        </div>
+      </div>
+      <div id="cop-detay"></div>`;
+
+    // Son silinen kaydı kontrol et
+    const sonSilme = window._sonSilinenKayit;
+    if (sonSilme) {
+      document.getElementById('geri-al-btn').style.display = '';
+      document.getElementById('cop-bilgi').innerHTML =
+        '<strong>Son silinen:</strong> ' + sonSilme.tip + ' — ' + (sonSilme.aciklama || sonSilme.firma || sonSilme.ad || 'Kayıt #'+sonSilme.id) +
+        '<br><small>Sayfayı kapatmadan geri alabilirsiniz</small>';
+    }
   },
 
   // KDV BEYANNAMESİ
@@ -1350,6 +1367,7 @@ function numuneHesap() {
 
 async function numuneSil(id) {
   if (!confirm('Bu numuneyi silmek istiyor musunuz?')) return;
+  window._sonSilinenKayit = {tip: 'Numune', endpoint: '/numuneler', id};
   const r = await api(`/numuneler/${id}`, 'DELETE');
   if (r) sayfaGit(aktifSayfa);
 }
@@ -1400,6 +1418,7 @@ function gelirEkleModal() {
 
 async function gelirSil(id) {
   if (!confirm('Bu kaydı silmek istiyor musunuz?')) return;
+  window._sonSilinenKayit = {tip: 'Gelir/Tahsilat', endpoint: '/gelirler', id};
   const r = await api(`/gelirler/${id}`, 'DELETE');
   if (r) sayfalar.gelir();
 }
@@ -1651,6 +1670,10 @@ async function plakaSil(id) {
 
 async function giderSil(id) {
   if (!confirm('Bu kaydı silmek istiyor musunuz?')) return;
+  // Silmeden once kaydet (geri alma icin)
+  const giderler = window._tumGiderler || [];
+  const kayit = giderler.find(g => g.id === id);
+  if (kayit) window._sonSilinenKayit = {tip: 'Gider', endpoint: '/giderler', data: kayit, ...kayit};
   const r = await api(`/giderler/${id}`, 'DELETE');
   if (r) sayfalar.gider();
 }
@@ -1900,6 +1923,15 @@ document.addEventListener('keydown', e => {
 });
 
 // ── MÜŞTERİ DETAY FONKSİYONLARI ─────────────────────────────────────────────
+function musteriDetayAra(val) {
+  const musteriler = window._detayMusteriler || [];
+  const m = musteriler.find(x => x.firma === val);
+  if (m) {
+    document.getElementById('detay-musteri').value = m.id;
+    musteriDetayYukle();
+  }
+}
+
 async function musteriDetayYukle() {
   const mid = document.getElementById('detay-musteri')?.value;
   const el = document.getElementById('musteri-detay-icerik');
@@ -2208,6 +2240,28 @@ async function borcEkstrePDF() {
     <div class="footer">Bu belge Labin Yapı Laboratuvarı Yönetim Sistemi tarafından otomatik oluşturulmuştur. ${new Date().toLocaleString('tr-TR')}</div>
     </body></html>`);
   w.document.close();
+}
+
+async function sonSilmeGeriAl() {
+  const s = window._sonSilinenKayit;
+  if (!s) { alert('Geri alınacak kayıt yok'); return; }
+  if (!confirm('Son silme işlemini geri almak istiyor musunuz?')) return;
+
+  let r = null;
+  if (s.data) {
+    // Veriyi tekrar ekle
+    const d = s.data;
+    delete d.id; delete d.olusturma;
+    r = await api(s.endpoint, 'POST', d);
+  }
+
+  if (r) {
+    alert('Kayıt geri yüklendi!');
+    window._sonSilinenKayit = null;
+    sayfaGit(aktifSayfa);
+  } else {
+    alert('Geri alma başarısız oldu');
+  }
 }
 
 if (token && aktifKullanici) {
