@@ -224,6 +224,14 @@ def init_db():
             anahtar TEXT PRIMARY KEY,
             deger TEXT
         )""",
+        f"""CREATE TABLE IF NOT EXISTS notlar (
+            id {pk},
+            hedef_tablo TEXT,
+            hedef_id INTEGER,
+            icerik TEXT NOT NULL,
+            yazan TEXT,
+            tarih TEXT DEFAULT CURRENT_TIMESTAMP
+        )""",
         f"""CREATE TABLE IF NOT EXISTS cop_kutusu (
             id {pk},
             tablo TEXT NOT NULL,
@@ -1000,6 +1008,63 @@ async def icon512():
 
 
 
+
+
+# ── NOTLAR ────────────────────────────────────────────────────────────────────
+@app.get("/notlar")
+def notlar_listele(hedef_tablo: Optional[str] = None, hedef_id: Optional[int] = None, token=Depends(token_dogrula)):
+    conn = get_db(); c = conn.cursor()
+    if hedef_tablo and hedef_id:
+        c.execute(adapt_sql("SELECT * FROM notlar WHERE hedef_tablo=? AND hedef_id=? ORDER BY tarih DESC"), (hedef_tablo, hedef_id))
+    else:
+        c.execute("SELECT * FROM notlar ORDER BY tarih DESC LIMIT 50")
+    rows = fetchall_dict(c); conn.close()
+    return rows if rows else []
+
+@app.post("/notlar")
+def not_ekle(data: dict, token=Depends(token_dogrula)):
+    conn = get_db(); c = conn.cursor()
+    yazan = token.get("kullanici_adi", "")
+    if USE_PG:
+        c.execute("INSERT INTO notlar (hedef_tablo,hedef_id,icerik,yazan) VALUES (%s,%s,%s,%s) RETURNING id",
+                  (data.get("hedef_tablo",""), data.get("hedef_id",0), data.get("icerik",""), yazan))
+        nid = c.fetchone()[0]
+    else:
+        c.execute("INSERT INTO notlar (hedef_tablo,hedef_id,icerik,yazan) VALUES (?,?,?,?)",
+                  (data.get("hedef_tablo",""), data.get("hedef_id",0), data.get("icerik",""), yazan))
+        nid = c.lastrowid
+    conn.commit(); conn.close()
+    return {"id": nid}
+
+@app.delete("/notlar/{nid}")
+def not_sil(nid: int, token=Depends(admin_kontrol)):
+    conn = get_db(); c = conn.cursor()
+    c.execute(adapt_sql("DELETE FROM notlar WHERE id=?"), (nid,))
+    conn.commit(); conn.close()
+    return {"mesaj": "Silindi"}
+
+# ── VADE TAKİBİ ───────────────────────────────────────────────────────────────
+@app.get("/vade-uyarilari")
+def vade_uyarilari(token=Depends(token_dogrula)):
+    conn = get_db(); c = conn.cursor()
+    bugun = date.today().isoformat()
+    yarin = (date.today() + __import__('datetime').timedelta(days=1)).isoformat()
+    hafta = (date.today() + __import__('datetime').timedelta(days=7)).isoformat()
+    
+    # Vadesi gecmis
+    c.execute(adapt_sql("SELECT * FROM cek_senetler WHERE durum='Beklemede' AND vade < ? ORDER BY vade"), (bugun,))
+    gecmis = fetchall_dict(c)
+    
+    # Bugün vadeli
+    c.execute(adapt_sql("SELECT * FROM cek_senetler WHERE durum='Beklemede' AND vade = ?"), (bugun,))
+    bugunki = fetchall_dict(c)
+    
+    # Bu hafta vadeli
+    c.execute(adapt_sql("SELECT * FROM cek_senetler WHERE durum='Beklemede' AND vade > ? AND vade <= ? ORDER BY vade"), (bugun, hafta))
+    haftaki = fetchall_dict(c)
+    
+    conn.close()
+    return {"gecmis": gecmis or [], "bugun": bugunki or [], "hafta": haftaki or []}
 
 # ── ÇÖP KUTUSU ───────────────────────────────────────────────────────────────
 @app.get("/cop-kutusu")
