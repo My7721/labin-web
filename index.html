@@ -634,66 +634,84 @@ const sayfalar = {
 
   // GİDER
   gider: async () => {
-    const giderler = await api('/giderler');
+    const [giderler, araclar] = await Promise.all([api('/giderler'), api('/araclar')]);
     if (!giderler) return;
     window._tumGiderler = giderler;
+    window._giderAraclar = araclar || [];
+
+    const tumToplam = giderler.reduce((s,g) => s+(g.tutar||0), 0);
 
     // Kategori toplamlari
+    const katlar = [
+      {id:'tumu',   label:'Tümü',              emoji:'📊', renk:'var(--ana)'},
+      {id:'benzin', label:'Benzin / Mazot',     emoji:'⛽', renk:'#e53e3e'},
+      {id:'sanayi', label:'Sanayi Gideri',      emoji:'🏭', renk:'#6c2bd9'},
+      {id:'maas',   label:'Personel Maaşları',  emoji:'👷', renk:'#057a55'},
+      {id:'malzeme',label:'Malzeme Gideri',     emoji:'📦', renk:'#d97706'},
+      {id:'fatura', label:'Fatura Giderleri',   emoji:'📄', renk:'#0891b2'},
+      {id:'diger',  label:'Diğer',              emoji:'📌', renk:'#6b7280'},
+    ];
+
     const katToplam = {};
     giderler.forEach(g => {
-      katToplam[g.kategori] = (katToplam[g.kategori] || 0) + (g.tutar || 0);
+      const k = katlar.find(k => k.id !== 'tumu' && g.kategori && g.kategori.includes(k.label));
+      if (k) katToplam[k.id] = (katToplam[k.id]||0) + (g.tutar||0);
     });
 
-    // Arac toplamlari
-    const aracToplam = {};
+    // Plaka toplamlari (sadece benzin ve sanayi)
+    const plakaToplam = {};
     giderler.filter(g => g.arac).forEach(g => {
-      aracToplam[g.arac] = (aracToplam[g.arac] || 0) + (g.tutar || 0);
+      plakaToplam[g.arac] = (plakaToplam[g.arac]||0) + (g.tutar||0);
     });
-
-    const tumToplam = giderler.reduce((s,g) => s + (g.tutar||0), 0);
-
-    const kategoriler = [
-      {id:'tumu', label:'📊 Tümü', renk:'var(--ana)'},
-      {id:'arac', label:'🚗 Araç Gideri', renk:'#1a56db'},
-      {id:'sanayi', label:'🏭 Sanayi Gideri', renk:'#6c2bd9'},
-      {id:'maas', label:'👷 Personel Maaşları', renk:'#057a55'},
-      {id:'malzeme', label:'📦 Malzeme Gideri', renk:'#d97706'},
-      {id:'fatura', label:'📄 Fatura Giderleri', renk:'#0891b2'},
-      {id:'diger', label:'📌 Diğer', renk:'#6b7280'},
-    ];
 
     const ic = document.getElementById('sayfa-icerik');
     ic.innerHTML = `
       <div class="sayfa-baslik">Giderler</div>
-      <div class="kart" style="margin-bottom:12px">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          ${isAdmin() ? '<button class="btn btn-ana btn-sm" onclick="giderEkleModal()">+ Gider Ekle</button>' : ''}
-          <div style="width:1px;height:24px;background:var(--kenar)"></div>
-          ${kategoriler.map(k => `<button class="btn btn-sm" id="gfilt-${k.id}"
-            onclick="giderFiltrele('${k.id}')"
-            style="background:${k.id==='tumu'?k.renk:'#f1f5f9'};color:${k.id==='tumu'?'#fff':'var(--metin)'};border:1px solid var(--kenar)">
-            ${k.label}${katToplam[k.label] ? ' · '+para(katToplam[k.label]) : ''}
-          </button>`).join('')}
-          <span style="margin-left:auto;font-weight:700;color:var(--kirmizi)" id="gider-toplam">Toplam: ${para(tumToplam)}</span>
-        </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        ${isAdmin() ? '<button class="btn btn-ana" onclick="giderEkleModal()">+ Gider Ekle</button>' : ''}
+        ${isAdmin() ? '<button class="btn btn-gri btn-sm" onclick="plakaYonetModal()">🚗 Plaka Yönet</button>' : ''}
       </div>
-      ${Object.keys(aracToplam).length ? `
+
+      <!-- Kategori ozet kartlari -->
       <div class="kart-grid kart-grid-4" style="margin-bottom:12px">
-        ${Object.entries(aracToplam).map(([plaka,tutar]) => `
-          <div class="kart" style="cursor:pointer" onclick="giderFiltreleArac('${plaka}')">
-            <div class="k-baslik">🚗 ${plaka}</div>
-            <div class="k-deger" style="color:var(--kirmizi);font-size:16px">${para(tutar)}</div>
-          </div>`).join('')}
+        <div class="kart" id="gkat-tumu" onclick="giderFiltrele('tumu')"
+          style="cursor:pointer;border:2px solid var(--ana);background:#eff6ff">
+          <div class="k-baslik">📊 Toplam Gider</div>
+          <div class="k-deger" style="color:var(--ana)">${para(tumToplam)}</div>
+        </div>
+        ${katlar.filter(k=>k.id!=='tumu').map(k=>`
+        <div class="kart" id="gkat-${k.id}" onclick="giderFiltrele('${k.id}')"
+          style="cursor:pointer">
+          <div class="k-baslik">${k.emoji} ${k.label}</div>
+          <div class="k-deger" style="color:${k.renk};font-size:16px">${para(katToplam[k.id]||0)}</div>
+        </div>`).join('')}
+      </div>
+
+      <!-- Plaka bazli kartlar -->
+      ${Object.keys(plakaToplam).length ? `
+      <div class="section-baslik">🚗 Araç Bazlı Giderler</div>
+      <div class="kart-grid kart-grid-4" style="margin-bottom:12px">
+        ${Object.entries(plakaToplam).sort((a,b)=>b[1]-a[1]).map(([plaka,tutar])=>`
+        <div class="kart" onclick="giderFiltreleArac('${plaka}')" style="cursor:pointer">
+          <div class="k-baslik">🚗 ${plaka}</div>
+          <div class="k-deger" style="color:var(--kirmizi);font-size:16px">${para(tutar)}</div>
+        </div>`).join('')}
       </div>` : ''}
+
+      <!-- Tablo -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span id="gider-filtre-lbl" style="font-size:13px;color:var(--ikincil)">Tüm giderler</span>
+        <span id="gider-toplam" style="margin-left:auto;font-weight:700;color:var(--kirmizi)">${para(tumToplam)}</span>
+      </div>
       <div class="tablo-wrap">
-        <table id="gider-tablo">
-          <thead><tr><th>Tarih</th><th>Kategori</th><th>Açıklama</th><th>Araç</th><th>Tutar</th>${isAdmin()?'<th>İşlem</th>':''}</tr></thead>
+        <table>
+          <thead><tr><th>Tarih</th><th>Kategori</th><th>Açıklama</th><th>Araç / Plaka</th><th>Tutar</th>${isAdmin()?'<th>İşlem</th>':''}</tr></thead>
           <tbody id="gider-tbody"></tbody>
         </table>
       </div>`;
 
+    window._giderKatlar = katlar;
     giderFiltrele('tumu');
-    window._giderKategoriler = kategoriler;
   },
 
   // PERSONELLER
@@ -1371,7 +1389,7 @@ async function gelirSil(id) {
 // ── GİDER ────────────────────────────────────────────────────────────────────
 function giderEkleModal() {
   const btnler = [
-    ['arac','🚗 Araç Gideri','#1a56db'],
+    ['benzin','⛽ Benzin / Mazot','#e53e3e'],
     ['sanayi','🏭 Sanayi Gideri','#6c2bd9'],
     ['maas','👷 Personel Maaşları','#057a55'],
     ['malzeme','📦 Malzeme Gideri','#d97706'],
@@ -1394,7 +1412,13 @@ function giderEkleModal() {
     <div class="form-grup"><label>Açıklama *</label><input id="gi-ac" placeholder="Detay giriniz..."></div>
     <div class="form-row">
       <div class="form-grup"><label>Tutar (₺) *</label><input type="number" id="gi-tutar" placeholder="0"></div>
-      <div class="form-grup" id="gi-arac-div" style="display:none"><label>Araç / Plaka</label><input id="gi-arac" placeholder="34 ABC 123"></div>
+      <div class="form-grup" id="gi-arac-div" style="display:none">
+        <label id="gi-arac-lbl">Araç Plakası</label>
+        <select id="gi-arac">
+          <option value="">-- Plaka Seçin --</option>
+          ${(window._giderAraclar||[]).map(a=>`<option value="${a.plaka}">${a.plaka}${a.model?' - '+a.model:''}</option>`).join('')}
+        </select>
+      </div>
     </div>
   `, async () => {
     const ac = document.getElementById('gi-ac').value.trim();
