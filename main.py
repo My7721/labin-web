@@ -98,6 +98,19 @@ def adapt_sql(sql):
     sql = re.sub(r"COALESCE\(SUM\((\w+)\),0\)", r"COALESCE(SUM(),0)", sql)
     return sql
 
+import json as _json
+
+def cope_kaydet(conn, tablo, kayit_id, veri_dict, aciklama=""):
+    """Silinen kaydi cop kutusuna kaydet"""
+    c = conn.cursor()
+    veri = _json.dumps(veri_dict, ensure_ascii=False, default=str)
+    if USE_PG:
+        c.execute("INSERT INTO cop_kutusu (tablo, kayit_id, veri, aciklama) VALUES (%s,%s,%s,%s)",
+                  (tablo, kayit_id, veri, aciklama))
+    else:
+        c.execute("INSERT INTO cop_kutusu (tablo, kayit_id, veri, aciklama) VALUES (?,?,?,?)",
+                  (tablo, kayit_id, veri, aciklama))
+
 def son_guncelleme_guncelle(conn):
     simdi = datetime.now().strftime("%d.%m.%Y %H:%M")
     if USE_PG:
@@ -210,6 +223,14 @@ def init_db():
         """CREATE TABLE IF NOT EXISTS ayarlar (
             anahtar TEXT PRIMARY KEY,
             deger TEXT
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS cop_kutusu (
+            id {pk},
+            tablo TEXT NOT NULL,
+            kayit_id INTEGER,
+            veri TEXT NOT NULL,
+            aciklama TEXT,
+            silme_tarihi TEXT DEFAULT CURRENT_TIMESTAMP
         )""",
     ]
 
@@ -507,6 +528,10 @@ def musteri_guncelle(mid: int, data: MusteriModel, token=Depends(admin_kontrol))
 def musteri_sil(mid: int, token=Depends(admin_kontrol)):
     conn = get_db()
     c = conn.cursor()
+    c.execute(adapt_sql("SELECT * FROM musteriler WHERE id=?"), (mid,))
+    kayit = fetchone_dict(c)
+    if kayit:
+        cope_kaydet(conn, "musteriler", mid, kayit, kayit.get("firma",""))
     c.execute(adapt_sql("DELETE FROM musteriler WHERE id=?"), (mid,))
     conn.commit(); conn.close()
     return {"mesaj": "Silindi"}
@@ -572,6 +597,10 @@ def numune_durum(nid: int, data: DurumModel, token=Depends(admin_kontrol)):
 def numune_sil(nid: int, token=Depends(admin_kontrol)):
     conn = get_db()
     c = conn.cursor()
+    c.execute(adapt_sql("SELECT * FROM numuneler WHERE id=?"), (nid,))
+    kayit = fetchone_dict(c)
+    if kayit:
+        cope_kaydet(conn, "numuneler", nid, kayit, f"{kayit.get('musteri_adi','')} - {kayit.get('tur','')}")
     c.execute(adapt_sql("DELETE FROM numuneler WHERE id=?"), (nid,))
     conn.commit(); conn.close()
     return {"mesaj": "Silindi"}
@@ -606,6 +635,10 @@ def gelir_ekle(data: GelirModel, token=Depends(admin_kontrol)):
 def gelir_sil(gid: int, token=Depends(admin_kontrol)):
     conn = get_db()
     c = conn.cursor()
+    c.execute(adapt_sql("SELECT * FROM gelirler WHERE id=?"), (gid,))
+    kayit = fetchone_dict(c)
+    if kayit:
+        cope_kaydet(conn, "gelirler", gid, kayit, f"{kayit.get('musteri_adi','')} - {kayit.get('tutar','')}")
     c.execute(adapt_sql("DELETE FROM gelirler WHERE id=?"), (gid,))
     conn.commit(); conn.close()
     return {"mesaj": "Silindi"}
@@ -640,6 +673,10 @@ def gider_ekle(data: GiderModel, token=Depends(admin_kontrol)):
 def gider_sil(gid: int, token=Depends(admin_kontrol)):
     conn = get_db()
     c = conn.cursor()
+    c.execute(adapt_sql("SELECT * FROM giderler WHERE id=?"), (gid,))
+    kayit = fetchone_dict(c)
+    if kayit:
+        cope_kaydet(conn, "giderler", gid, kayit, f"{kayit.get('kategori','')} - {kayit.get('aciklama','')}")
     c.execute(adapt_sql("DELETE FROM giderler WHERE id=?"), (gid,))
     conn.commit(); conn.close()
     return {"mesaj": "Silindi"}
@@ -723,6 +760,10 @@ def cek_durum(cid: int, data: DurumModel, token=Depends(admin_kontrol)):
 def cek_sil(cid: int, token=Depends(admin_kontrol)):
     conn = get_db()
     c = conn.cursor()
+    c.execute(adapt_sql("SELECT * FROM cek_senetler WHERE id=?"), (cid,))
+    kayit = fetchone_dict(c)
+    if kayit:
+        cope_kaydet(conn, "cek_senetler", cid, kayit, f"{kayit.get('musteri_adi','')} - {kayit.get('tutar','')}")
     c.execute(adapt_sql("DELETE FROM cek_senetler WHERE id=?"), (cid,))
     conn.commit(); conn.close()
     return {"mesaj": "Silindi"}
@@ -957,6 +998,67 @@ async def icon512():
                    headers={"Cache-Control": "public, max-age=86400"})
 
 
+
+
+
+# ── ÇÖP KUTUSU ───────────────────────────────────────────────────────────────
+@app.get("/cop-kutusu")
+def cop_listele(token=Depends(token_dogrula)):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM cop_kutusu ORDER BY silme_tarihi DESC")
+    rows = fetchall_dict(c)
+    conn.close()
+    return rows if rows else []
+
+@app.post("/cop-kutusu/{cid}/geri-yukle")
+def cop_geri_yukle(cid: int, token=Depends(admin_kontrol)):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(adapt_sql("SELECT * FROM cop_kutusu WHERE id=?"), (cid,))
+    kayit = fetchone_dict(c)
+    if not kayit:
+        raise HTTPException(404, "Kayit bulunamadi")
+    
+    tablo = kayit["tablo"]
+    veri = _json.loads(kayit["veri"])
+    
+    # Orijinal ID'yi kaldir
+    orijinal_id = veri.pop("id", None)
+    veri.pop("olusturma", None)
+    veri.pop("kayit_tarihi", None)
+    
+    kolonlar = list(veri.keys())
+    degerler = list(veri.values())
+    
+    if USE_PG:
+        placeholders = ",".join(["%s"] * len(kolonlar))
+    else:
+        placeholders = ",".join(["?"] * len(kolonlar))
+    
+    sql = f"INSERT INTO {tablo} ({','.join(kolonlar)}) VALUES ({placeholders})"
+    c.execute(sql, degerler)
+    
+    # Cop kutusundan sil
+    c.execute(adapt_sql("DELETE FROM cop_kutusu WHERE id=?"), (cid,))
+    conn.commit(); conn.close()
+    return {"mesaj": "Geri yuklendi"}
+
+@app.delete("/cop-kutusu/{cid}")
+def cop_kalici_sil(cid: int, token=Depends(admin_kontrol)):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(adapt_sql("DELETE FROM cop_kutusu WHERE id=?"), (cid,))
+    conn.commit(); conn.close()
+    return {"mesaj": "Kalici silindi"}
+
+@app.delete("/cop-kutusu-temizle")
+def cop_temizle(token=Depends(admin_kontrol)):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM cop_kutusu")
+    conn.commit(); conn.close()
+    return {"mesaj": "Cop kutusu temizlendi"}
 
 # ── GİDER ÖZET (Kategori + Araç bazlı) ───────────────────────────────────────
 @app.get("/gider-ozet")
