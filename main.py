@@ -761,19 +761,41 @@ def araclar(token=Depends(token_dogrula)):
     c.execute("SELECT * FROM araclar ORDER BY plaka")
     rows = fetchall_dict(c)
     conn.close()
-    return rows
+    return rows if rows else []
+
+class AracModel(BaseModel):
+    plaka: str
+    model: Optional[str] = ""
 
 @app.post("/araclar")
-def arac_ekle(plaka: str, model: str = "", token=Depends(admin_kontrol)):
-    conn = get_db()
-    cur = conn.execute("INSERT INTO araclar (plaka,model) VALUES (?,?)", (plaka.upper(), model))
+def arac_ekle_query(plaka: str = "", model: str = "", token=Depends(admin_kontrol)):
+    if not plaka: raise HTTPException(400, "Plaka zorunludur")
+    conn = get_db(); c = conn.cursor()
+    if USE_PG:
+        c.execute("INSERT INTO araclar (plaka,model) VALUES (%s,%s) RETURNING id", (plaka.upper(), model))
+        aid = c.fetchone()[0]
+    else:
+        c.execute("INSERT INTO araclar (plaka,model) VALUES (?,?)", (plaka.upper(), model))
+        aid = c.lastrowid
     conn.commit(); conn.close()
-    return {"id": cur.lastrowid}
+    return {"id": aid}
+
+@app.post("/araclar-ekle")
+def arac_ekle(data: AracModel, token=Depends(admin_kontrol)):
+    conn = get_db(); c = conn.cursor()
+    if USE_PG:
+        c.execute("INSERT INTO araclar (plaka,model) VALUES (%s,%s) RETURNING id", (data.plaka.upper(), data.model))
+        aid = c.fetchone()[0]
+    else:
+        c.execute("INSERT INTO araclar (plaka,model) VALUES (?,?)", (data.plaka.upper(), data.model))
+        aid = c.lastrowid
+    conn.commit(); conn.close()
+    return {"id": aid}
 
 @app.delete("/araclar/{aid}")
 def arac_sil(aid: int, token=Depends(admin_kontrol)):
-    conn = get_db()
-    conn.execute("DELETE FROM araclar WHERE id=?", (aid,))
+    conn = get_db(); c = conn.cursor()
+    c.execute(adapt_sql("DELETE FROM araclar WHERE id=?"), (aid,))
     conn.commit(); conn.close()
     return {"mesaj": "Silindi"}
 
