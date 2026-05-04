@@ -251,8 +251,8 @@ tr.beklem td { color: var(--metin); }
       <button onclick="sayfaGit('cop_kutusu')" title="Çöp Kutusu" style="flex:1;padding:7px;background:rgba(255,255,255,.08);border:none;border-radius:8px;color:#94a3b8;font-size:16px;cursor:pointer">🗑️</button>
     </div>
     <div style="display:flex;gap:4px;padding:0 8px 8px">
-      <button onclick="sonIslemGeriAl()" title="Son silmeyi geri al" style="flex:1;padding:7px;background:rgba(255,255,255,.08);border:none;border-radius:8px;color:#94a3b8;font-size:16px;cursor:pointer;transition:background .2s" onmouseover="this.style.background='rgba(255,255,255,.15)'" onmouseout="this.style.background='rgba(255,255,255,.08)'">↩️ Geri Al</button>
-      <button onclick="sayfaGit('cop_kutusu')" title="Çöp Kutusu" style="flex:1;padding:7px;background:rgba(255,255,255,.08);border:none;border-radius:8px;color:#94a3b8;font-size:16px;cursor:pointer;transition:background .2s" onmouseover="this.style.background='rgba(255,255,255,.15)'" onmouseout="this.style.background='rgba(255,255,255,.08)'">🗑️ Çöp</button>
+      <button id="btn-geri" onclick="geriAl()" title="Geri Al (Ctrl+Z)" style="flex:1;padding:8px;background:rgba(255,255,255,.06);border:none;border-radius:8px;color:#475569;font-size:18px;cursor:pointer;transition:all .2s" onmouseover="this.style.background='rgba(255,255,255,.15)'" onmouseout="this.style.background='rgba(255,255,255,.06)'">◀</button>
+      <button id="btn-ileri" onclick="ileriAl()" title="İleri Al (Ctrl+Y)" style="flex:1;padding:8px;background:rgba(255,255,255,.06);border:none;border-radius:8px;color:#475569;font-size:18px;cursor:pointer;transition:all .2s" onmouseover="this.style.background='rgba(255,255,255,.15)'" onmouseout="this.style.background='rgba(255,255,255,.06)'">▶</button>
     </div>
     <nav id="nav" style="flex:1;overflow-y:auto"></nav>
     <div class="sidebar-alt">
@@ -293,7 +293,23 @@ async function api(yol, method = 'GET', body = null) {
     alert(err.detail || 'Bir hata oluştu');
     return null;
   }
-  return r.json();
+  const sonuc = await r.json();
+
+  // Gecmise kaydet (cop-kutusu ve ayar islemleri haric)
+  if (method === 'POST' && !yol.includes('cop-kutusu') && !yol.includes('giris') && !yol.includes('durum') && sonuc?.id) {
+    gecmiseEkle({ tip: 'ekle', endpoint: yol, id: sonuc.id, data: body, tarih: new Date().toLocaleTimeString('tr-TR') });
+  }
+  if (method === 'DELETE' && !yol.includes('cop-kutusu') && !yol.includes('temizle')) {
+    // Cop kutusundaki son kaydi bul (az once eklendi)
+    try {
+      const coplar = await fetch(API + '/cop-kutusu', { headers: {'Authorization': 'Bearer '+token} });
+      const copData = await coplar.json();
+      const sonCop = copData?.[0];
+      gecmiseEkle({ tip: 'sil', silEndpoint: yol, copId: sonCop?.id, tarih: new Date().toLocaleTimeString('tr-TR') });
+    } catch(e) {}
+  }
+
+  return sonuc;
 }
 
 const para = n => new Intl.NumberFormat('tr-TR', {minimumFractionDigits:2}).format(n||0) + ' ₺';
@@ -2282,14 +2298,66 @@ async function sonSilmeGeriAl() {
   }
 }
 
-async function sonIslemGeriAl() {
-  const kayitlar = await api('/cop-kutusu');
-  if (!kayitlar || !kayitlar.length) { alert('Geri alınacak işlem yok'); return; }
-  const son = kayitlar[0];
-  if (!confirm('Son silinen kaydı geri yüklemek istiyor musunuz?\n' + (son.aciklama||''))) return;
-  const r = await api('/cop-kutusu/' + son.id + '/geri-yukle', 'POST');
-  if (r) { alert('Geri yüklendi!'); sayfaGit(aktifSayfa); }
+// ── GERİ AL / İLERİ AL SİSTEMİ ───────────────────────────────────────────────
+window._gecmis = [];
+window._gecmisPos = -1;
+
+function gecmiseEkle(islem) {
+  // Ileri alma gecmisini temizle
+  window._gecmis = window._gecmis.slice(0, window._gecmisPos + 1);
+  window._gecmis.push(islem);
+  if (window._gecmis.length > 50) window._gecmis.shift();
+  window._gecmisPos = window._gecmis.length - 1;
+  gecmisButonGuncelle();
 }
+
+function gecmisButonGuncelle() {
+  const geri = document.getElementById('btn-geri');
+  const ileri = document.getElementById('btn-ileri');
+  if (geri) geri.style.color = window._gecmisPos >= 0 ? '#e2e8f0' : '#475569';
+  if (ileri) ileri.style.color = window._gecmisPos < window._gecmis.length - 1 ? '#e2e8f0' : '#475569';
+}
+
+async function geriAl() {
+  if (window._gecmisPos < 0) { alert('Geri alınacak işlem yok'); return; }
+  const islem = window._gecmis[window._gecmisPos];
+  try {
+    if (islem.tip === 'ekle') {
+      // Eklenen kaydi sil
+      await api(islem.endpoint + '/' + islem.id, 'DELETE');
+    } else if (islem.tip === 'sil') {
+      // Silinen kaydi geri yukle (cop kutusundan)
+      if (islem.copId) await api('/cop-kutusu/' + islem.copId + '/geri-yukle', 'POST');
+    }
+    window._gecmisPos--;
+    gecmisButonGuncelle();
+    sayfaGit(aktifSayfa);
+  } catch(e) { alert('Geri alma başarısız'); }
+}
+
+async function ileriAl() {
+  if (window._gecmisPos >= window._gecmis.length - 1) { alert('İleri alınacak işlem yok'); return; }
+  window._gecmisPos++;
+  const islem = window._gecmis[window._gecmisPos];
+  try {
+    if (islem.tip === 'ekle') {
+      // Tekrar ekle
+      const r = await api(islem.endpoint, 'POST', islem.data);
+      if (r && r.id) islem.id = r.id;
+    } else if (islem.tip === 'sil') {
+      // Tekrar sil
+      if (islem.silEndpoint) await api(islem.silEndpoint, 'DELETE');
+    }
+    gecmisButonGuncelle();
+    sayfaGit(aktifSayfa);
+  } catch(e) { alert('İleri alma başarısız'); }
+}
+
+// Ctrl+Z ve Ctrl+Y kisayollari
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); geriAl(); }
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); ileriAl(); }
+});
 
 function copTumunuSec(checked) {
   document.querySelectorAll('.cop-cb').forEach(cb => cb.checked = checked);
