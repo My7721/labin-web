@@ -814,7 +814,7 @@ def ozet(bas: Optional[str] = None, bit: Optional[str] = None, token=Depends(tok
     ph1 = '%s' if USE_PG else '?'
     if bas and bit:
         t_where = f"AND tarih >= {ph1} AND tarih <= {ph1}"
-        t_where_cek = f"AND vade >= {ph1} AND vade <= {ph1}"
+        t_where_cek = f"AND kayit >= {ph1} AND kayit <= {ph1}"
         t_params = (bas, bit)
     else:
         t_where = ""; t_where_cek = ""; t_params = ()
@@ -915,25 +915,24 @@ async def manifest():
         "categories": ["business", "productivity"]
     })
 
-# PWA Service Worker
+# PWA Service Worker - kendini yokeder
 @app.get("/sw.js")
 async def service_worker():
     from fastapi.responses import Response
     sw_content = """
-const CACHE = 'labin-v202605041756';
-self.addEventListener('install', e => { self.skipWaiting(); });
+// Service worker kendini yok ediyor
+self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys =>
-    Promise.all(keys.map(k => caches.delete(k)))
-  ));
-  self.clients.claim();
-});
-self.addEventListener('fetch', e => {
-  // Her zaman network'ten yukle, cache kullanma
-  e.respondWith(fetch(e.request).catch(() => new Response('Offline')));
+  e.waitUntil(
+    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))))
+    .then(() => self.registration.unregister())
+    .then(() => self.clients.matchAll()).then(clients => clients.forEach(c => c.navigate(c.url)))
+  );
 });
 """
-    return Response(content=sw_content, media_type="application/javascript")
+    return Response(content=sw_content, media_type="application/javascript",
+                   headers={"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"})
+
 
 # PWA ikonlari (basit mavi kare)
 @app.get("/icon-192.png")
@@ -957,6 +956,37 @@ async def icon512():
     return Response(content=png, media_type="image/png",
                    headers={"Cache-Control": "public, max-age=86400"})
 
+
+
+# ── GİDER ÖZET (Kategori + Araç bazlı) ───────────────────────────────────────
+@app.get("/gider-ozet")
+def gider_ozet(bas: Optional[str] = None, bit: Optional[str] = None, token=Depends(token_dogrula)):
+    conn = get_db()
+    c = conn.cursor()
+    ph1 = '%s' if USE_PG else '?'
+    if bas and bit:
+        t_where = f"AND tarih >= {ph1} AND tarih <= {ph1}"
+        t_params = (bas, bit)
+    else:
+        t_where = ""; t_params = ()
+
+    def scalar(sql, params=()):
+        c.execute(sql, params)
+        r = c.fetchone()
+        return float(r[0]) if r and r[0] else 0.0
+
+    toplam = scalar(f"SELECT COALESCE(SUM(tutar),0) FROM giderler WHERE 1=1 {t_where}", t_params)
+
+    # Kategori bazli
+    c.execute(f"SELECT kategori, SUM(tutar) as toplam FROM giderler WHERE 1=1 {t_where} GROUP BY kategori ORDER BY toplam DESC", t_params)
+    kategoriler = fetchall_dict(c)
+
+    # Arac bazli
+    c.execute(f"SELECT arac, SUM(tutar) as toplam FROM giderler WHERE arac IS NOT NULL AND arac != '' {t_where} GROUP BY arac ORDER BY toplam DESC", t_params)
+    araclar = fetchall_dict(c)
+
+    conn.close()
+    return {"toplam": toplam, "kategoriler": kategoriler, "araclar": araclar}
 # Ana sayfada index.html'i gonder
 @app.get("/", response_class=HTMLResponse)
 async def ana_sayfa():
