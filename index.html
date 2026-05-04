@@ -636,26 +636,64 @@ const sayfalar = {
   gider: async () => {
     const giderler = await api('/giderler');
     if (!giderler) return;
-    let toplam = 0;
-    let html = `
+    window._tumGiderler = giderler;
+
+    // Kategori toplamlari
+    const katToplam = {};
+    giderler.forEach(g => {
+      katToplam[g.kategori] = (katToplam[g.kategori] || 0) + (g.tutar || 0);
+    });
+
+    // Arac toplamlari
+    const aracToplam = {};
+    giderler.filter(g => g.arac).forEach(g => {
+      aracToplam[g.arac] = (aracToplam[g.arac] || 0) + (g.tutar || 0);
+    });
+
+    const tumToplam = giderler.reduce((s,g) => s + (g.tutar||0), 0);
+
+    const kategoriler = [
+      {id:'tumu', label:'📊 Tümü', renk:'var(--ana)'},
+      {id:'arac', label:'🚗 Araç Gideri', renk:'#1a56db'},
+      {id:'sanayi', label:'🏭 Sanayi Gideri', renk:'#6c2bd9'},
+      {id:'maas', label:'👷 Personel Maaşları', renk:'#057a55'},
+      {id:'malzeme', label:'📦 Malzeme Gideri', renk:'#d97706'},
+      {id:'fatura', label:'📄 Fatura Giderleri', renk:'#0891b2'},
+      {id:'diger', label:'📌 Diğer', renk:'#6b7280'},
+    ];
+
+    const ic = document.getElementById('sayfa-icerik');
+    ic.innerHTML = `
       <div class="sayfa-baslik">Giderler</div>
-      <div class="toolbar">
-        ${isAdmin() ? '<button class="btn btn-ana" onclick="giderEkleModal()">+ Gider Ekle</button>' : ''}
-        <span id="gider-toplam" style="margin-left:auto;font-weight:700;color:var(--kirmizi)"></span>
+      <div class="kart" style="margin-bottom:12px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          ${isAdmin() ? '<button class="btn btn-ana btn-sm" onclick="giderEkleModal()">+ Gider Ekle</button>' : ''}
+          <div style="width:1px;height:24px;background:var(--kenar)"></div>
+          ${kategoriler.map(k => `<button class="btn btn-sm" id="gfilt-${k.id}"
+            onclick="giderFiltrele('${k.id}')"
+            style="background:${k.id==='tumu'?k.renk:'#f1f5f9'};color:${k.id==='tumu'?'#fff':'var(--metin)'};border:1px solid var(--kenar)">
+            ${k.label}${katToplam[k.label] ? ' · '+para(katToplam[k.label]) : ''}
+          </button>`).join('')}
+          <span style="margin-left:auto;font-weight:700;color:var(--kirmizi)" id="gider-toplam">Toplam: ${para(tumToplam)}</span>
+        </div>
       </div>
-      <div class="tablo-wrap"><table>
-        <thead><tr><th>Tarih</th><th>Kategori</th><th>Açıklama</th><th>Araç</th><th>Tutar</th>${isAdmin()?'<th>İşlem</th>':''}</tr></thead>
-        <tbody>`;
-    for (const g of giderler) {
-      toplam += g.tutar || 0;
-      html += `<tr><td>${g.tarih}</td><td>${g.kategori}</td><td>${g.aciklama}</td>
-        <td>${g.arac||''}</td><td style="color:var(--kirmizi);font-weight:600">${para(g.tutar)}</td>
-        ${isAdmin() ? `<td><button class="btn btn-kirmizi btn-sm" onclick="giderSil(${g.id})">Sil</button></td>` : ''}
-      </tr>`;
-    }
-    html += '</tbody></table></div>';
-    document.getElementById('sayfa-icerik').innerHTML = html;
-    document.getElementById('gider-toplam').textContent = `Toplam: ${para(toplam)}`;
+      ${Object.keys(aracToplam).length ? `
+      <div class="kart-grid kart-grid-4" style="margin-bottom:12px">
+        ${Object.entries(aracToplam).map(([plaka,tutar]) => `
+          <div class="kart" style="cursor:pointer" onclick="giderFiltreleArac('${plaka}')">
+            <div class="k-baslik">🚗 ${plaka}</div>
+            <div class="k-deger" style="color:var(--kirmizi);font-size:16px">${para(tutar)}</div>
+          </div>`).join('')}
+      </div>` : ''}
+      <div class="tablo-wrap">
+        <table id="gider-tablo">
+          <thead><tr><th>Tarih</th><th>Kategori</th><th>Açıklama</th><th>Araç</th><th>Tutar</th>${isAdmin()?'<th>İşlem</th>':''}</tr></thead>
+          <tbody id="gider-tbody"></tbody>
+        </table>
+      </div>`;
+
+    giderFiltrele('tumu');
+    window._giderKategoriler = kategoriler;
   },
 
   // PERSONELLER
@@ -1372,6 +1410,63 @@ function giderEkleModal() {
       arac: document.getElementById('gi-arac')?.value || '',
     });
     if (r) { modalKapat(); sayfalar.gider(); }
+  });
+}
+
+function giderFiltrele(katId) {
+  const giderler = window._tumGiderler || [];
+  const kategoriler = window._giderKategoriler || [];
+  // Buton stilleri
+  kategoriler.forEach(k => {
+    const btn = document.getElementById('gfilt-'+k.id);
+    if (!btn) return;
+    if (k.id === katId) {
+      btn.style.background = k.renk; btn.style.color = '#fff'; btn.style.border = 'none';
+    } else {
+      btn.style.background = '#f1f5f9'; btn.style.color = 'var(--metin)'; btn.style.border = '1px solid var(--kenar)';
+    }
+  });
+  const filtreli = katId === 'tumu' ? giderler
+    : giderler.filter(g => {
+        if (katId === 'arac') return g.kategori && g.kategori.includes('Araç');
+        if (katId === 'sanayi') return g.kategori && g.kategori.includes('Sanayi');
+        if (katId === 'maas') return g.kategori && g.kategori.includes('Personel');
+        if (katId === 'malzeme') return g.kategori && g.kategori.includes('Malzeme');
+        if (katId === 'fatura') return g.kategori && g.kategori.includes('Fatura');
+        if (katId === 'diger') return g.kategori && g.kategori.includes('Diğer');
+        return true;
+      });
+  const toplam = filtreli.reduce((s,g) => s+(g.tutar||0), 0);
+  const isAdm = isAdmin();
+  const tbody = document.getElementById('gider-tbody');
+  if (tbody) tbody.innerHTML = filtreli.map(g => `<tr>
+    <td>${g.tarih}</td><td>${g.kategori||''}</td><td>${g.aciklama||''}</td>
+    <td>${g.arac||''}</td>
+    <td style="color:var(--kirmizi);font-weight:600">${para(g.tutar)}</td>
+    ${isAdm ? `<td><button class="btn btn-kirmizi btn-sm" onclick="giderSil(${g.id})">Sil</button></td>` : ''}
+  </tr>`).join('');
+  const tot = document.getElementById('gider-toplam');
+  if (tot) tot.textContent = `${filtreli.length} kayıt · ${para(toplam)}`;
+}
+
+function giderFiltreleArac(plaka) {
+  const giderler = window._tumGiderler || [];
+  const filtreli = giderler.filter(g => g.arac === plaka);
+  const toplam = filtreli.reduce((s,g) => s+(g.tutar||0), 0);
+  const isAdm = isAdmin();
+  const tbody = document.getElementById('gider-tbody');
+  if (tbody) tbody.innerHTML = filtreli.map(g => `<tr>
+    <td>${g.tarih}</td><td>${g.kategori||''}</td><td>${g.aciklama||''}</td>
+    <td><strong>${g.arac||''}</strong></td>
+    <td style="color:var(--kirmizi);font-weight:600">${para(g.tutar)}</td>
+    ${isAdm ? `<td><button class="btn btn-kirmizi btn-sm" onclick="giderSil(${g.id})">Sil</button></td>` : ''}
+  </tr>`).join('');
+  const tot = document.getElementById('gider-toplam');
+  if (tot) tot.textContent = `🚗 ${plaka} · ${para(toplam)}`;
+  // Tum kategori butonlarini sifirla
+  (window._giderKategoriler||[]).forEach(k => {
+    const btn = document.getElementById('gfilt-'+k.id);
+    if (btn) { btn.style.background = '#f1f5f9'; btn.style.color = 'var(--metin)'; btn.style.border = '1px solid var(--kenar)'; }
   });
 }
 
