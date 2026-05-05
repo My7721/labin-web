@@ -526,7 +526,15 @@ def musteri_guncelle(mid: int, data: MusteriModel, token=Depends(admin_kontrol))
               (data.tip,data.firma,data.yetkili,data.telefon,data.eposta,data.vergino,data.adres,data.belediye,mid))
     c.execute(adapt_sql("SELECT * FROM musteri_fiyatlar WHERE musteri_id=? ORDER BY tarih DESC LIMIT 1"), (mid,))
     son = fetchone_dict(c)
-    if not son or (son["taze_beton"]!=data.taze_beton or son["celik"]!=data.celik or son["karot"]!=data.karot):
+    # Decimal/float karsilastirmasi icin float'a cevir
+    farkli = True
+    if son:
+        try:
+            farkli = (float(son.get("taze_beton") or 0) != float(data.taze_beton or 0) or
+                      float(son.get("celik") or 0) != float(data.celik or 0) or
+                      float(son.get("karot") or 0) != float(data.karot or 0))
+        except: farkli = True
+    if farkli:
         c.execute(adapt_sql("INSERT INTO musteri_fiyatlar (musteri_id,taze_beton,celik,karot) VALUES (?,?,?,?)"),
                   (mid, data.taze_beton, data.celik, data.karot))
     conn.commit(); conn.close()
