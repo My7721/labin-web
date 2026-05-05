@@ -1173,6 +1173,51 @@ def yedek_al(token=Depends(admin_kontrol)):
     yedek["versiyon"] = "1.0"
     return yedek
 
+@app.post("/yedek-yukle")
+def yedek_yukle(data: dict, token=Depends(admin_kontrol)):
+    """Yedek dosyasından verileri geri yükle"""
+    conn = get_db(); c = conn.cursor()
+    eklenen = {}
+    hatalar = []
+    
+    tablolar = ["musteriler","musteri_fiyatlar","araclar","numuneler","gelirler",
+                "giderler","personeller","cek_senetler","beton_programi","notlar","kullanicilar"]
+    
+    for tablo in tablolar:
+        if tablo not in data or not data[tablo]:
+            continue
+        eklenen[tablo] = 0
+        for kayit in data[tablo]:
+            try:
+                # ID ve olusturma alanlarini cikar (otomatik atanacak)
+                kayit_temiz = {k: v for k, v in kayit.items() 
+                              if k not in ('id', 'olusturma', 'kayit_tarihi', 'kayit')}
+                if not kayit_temiz:
+                    continue
+                
+                kolonlar = list(kayit_temiz.keys())
+                degerler = list(kayit_temiz.values())
+                ph = ",".join(["%s" if USE_PG else "?"] * len(kolonlar))
+                
+                # Kullanıcılar için ON CONFLICT
+                if tablo == "kullanicilar":
+                    if USE_PG:
+                        sql = f"INSERT INTO {tablo} ({','.join(kolonlar)}) VALUES ({ph}) ON CONFLICT (kullanici_adi) DO NOTHING"
+                    else:
+                        sql = f"INSERT OR IGNORE INTO {tablo} ({','.join(kolonlar)}) VALUES ({ph})"
+                else:
+                    sql = f"INSERT INTO {tablo} ({','.join(kolonlar)}) VALUES ({ph})"
+                
+                c.execute(sql, degerler)
+                conn.commit()
+                eklenen[tablo] += 1
+            except Exception as e:
+                conn.rollback()
+                hatalar.append(f"{tablo}: {str(e)[:100]}")
+    
+    conn.close()
+    return {"eklenen": eklenen, "hatalar": hatalar[:10]}
+
 # Ana sayfada index.html'i gonder
 @app.get("/", response_class=HTMLResponse)
 async def ana_sayfa():
