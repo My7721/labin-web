@@ -1408,8 +1408,14 @@ function musteriEkleModal(m = null) {
 }
 
 async function musteriDuzenle(id) {
-  const m = window._musteriler?.find(x => x.id === id);
-  if (m) musteriEkleModal(m);
+  // Guncel veriyi getir (cache'den degil)
+  const m = await api('/musteriler/' + id);
+  if (!m) return;
+  // Son fiyati fiyatlar listesinden al
+  if (m.fiyatlar && m.fiyatlar.length) {
+    m.son_fiyat = m.fiyatlar[0]; // ORDER BY id DESC oldugu icin ilk eleman en yenisi
+  }
+  musteriEkleModal(m);
 }
 
 async function musteriSil(id) {
