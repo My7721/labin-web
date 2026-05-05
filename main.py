@@ -481,7 +481,7 @@ def musteriler(token=Depends(token_dogrula)):
     result = []
     for r in rows:
         m = dict(r)
-        c.execute(adapt_sql("SELECT * FROM musteri_fiyatlar WHERE musteri_id=? ORDER BY tarih DESC LIMIT 1"), (r["id"],))
+        c.execute(adapt_sql("SELECT * FROM musteri_fiyatlar WHERE musteri_id=? ORDER BY id DESC LIMIT 1"), (r["id"],))
         fp = fetchone_dict(c)
         m["son_fiyat"] = fp if fp else {"taze_beton":0,"celik":0,"karot":0}
         result.append(m)
@@ -496,7 +496,7 @@ def musteri_detay(mid: int, token=Depends(token_dogrula)):
     m = fetchone_dict(c)
     if not m: raise HTTPException(404, "Musteri bulunamadi")
     result = dict(m)
-    c.execute(adapt_sql("SELECT * FROM musteri_fiyatlar WHERE musteri_id=? ORDER BY tarih DESC"), (mid,))
+    c.execute(adapt_sql("SELECT * FROM musteri_fiyatlar WHERE musteri_id=? ORDER BY id DESC"), (mid,))
     result["fiyatlar"] = fetchall_dict(c)
     conn.close()
     return result
@@ -524,7 +524,7 @@ def musteri_guncelle(mid: int, data: MusteriModel, token=Depends(admin_kontrol))
     c = conn.cursor()
     c.execute(adapt_sql("UPDATE musteriler SET tip=?,firma=?,yetkili=?,telefon=?,eposta=?,vergino=?,adres=?,belediye=? WHERE id=?"),
               (data.tip,data.firma,data.yetkili,data.telefon,data.eposta,data.vergino,data.adres,data.belediye,mid))
-    c.execute(adapt_sql("SELECT * FROM musteri_fiyatlar WHERE musteri_id=? ORDER BY tarih DESC LIMIT 1"), (mid,))
+    c.execute(adapt_sql("SELECT * FROM musteri_fiyatlar WHERE musteri_id=? ORDER BY id DESC LIMIT 1"), (mid,))
     son = fetchone_dict(c)
     # Decimal/float karsilastirmasi icin float'a cevir
     farkli = True
