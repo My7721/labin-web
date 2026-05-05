@@ -889,6 +889,13 @@ const sayfalar = {
           <p style="font-size:13px;color:var(--ikincil);margin:8px 0 12px">Tüm verilerinizi JSON dosyası olarak bilgisayarınıza indirin. <strong>Haftada bir almanızı öneririm.</strong></p>
           <button class="btn btn-yesil btn-sm" onclick="yedekIndir()">💾 Yedek İndir</button>
         </div>
+        <div class="kart" style="border:2px solid var(--turuncu);background:#fff7ed">
+          <div class="k-baslik">📥 Yedekten Geri Yükle</div>
+          <p style="font-size:13px;color:var(--ikincil);margin:8px 0 12px">Daha önce indirdiğiniz JSON yedek dosyasını yükleyerek verileri geri getirin. <strong>Mevcut verilerin üzerine eklenir.</strong></p>
+          <input type="file" id="yedek-dosya" accept=".json" style="margin-bottom:8px;font-size:13px">
+          <br>
+          <button class="btn btn-turuncu btn-sm" onclick="yedekYukle()">📥 Yedeği Geri Yükle</button>
+        </div>
         <div class="kart">
           <div class="k-baslik">📋 Müşteri Borç Ekstresi</div>
           <p style="font-size:13px;color:var(--ikincil);margin:8px 0 12px">Müşteriye gönderilecek borç/alacak özeti</p>
@@ -2338,6 +2345,40 @@ async function yedekIndir() {
   a.download = 'labin_yedek_' + new Date().toISOString().split('T')[0] + '.json';
   a.click();
   alert('Yedek indirildi! Bu dosyayı güvenli bir yerde saklayın.');
+}
+
+async function yedekYukle() {
+  const inp = document.getElementById('yedek-dosya');
+  if (!inp || !inp.files.length) { alert('Lütfen bir yedek dosyası seçin!'); return; }
+  const dosya = inp.files[0];
+  if (!confirm('Yedek dosyasındaki veriler mevcut sistemine eklenecek. Devam etmek istiyor musunuz?\n\nDosya: ' + dosya.name)) return;
+  
+  try {
+    const metin = await dosya.text();
+    const veri = JSON.parse(metin);
+    if (!veri.versiyon) {
+      if (!confirm('Bu dosya geçerli bir yedek dosyasına benzemiyor. Yine de denemek ister misiniz?')) return;
+    }
+    
+    const r = await fetch(API + '/yedek-yukle', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer '+token},
+      body: JSON.stringify(veri)
+    });
+    if (!r.ok) { alert('Geri yükleme başarısız!'); return; }
+    const sonuc = await r.json();
+    let mesaj = '✅ Yedek geri yüklendi!\n\nEklenen kayıtlar:\n';
+    for (const [tablo, sayi] of Object.entries(sonuc.eklenen||{})) {
+      if (sayi > 0) mesaj += '  • ' + tablo + ': ' + sayi + ' kayıt\n';
+    }
+    if (sonuc.hatalar && sonuc.hatalar.length) {
+      mesaj += '\n⚠️ Bazı kayıtlar zaten mevcut olabilir veya hata oluştu.';
+    }
+    alert(mesaj);
+    inp.value = '';
+  } catch(e) {
+    alert('Dosya okunamadı: ' + e.message);
+  }
 }
 
 async function aylikRaporPDF() {
