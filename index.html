@@ -577,6 +577,15 @@ const sayfalar = {
     const numuneler = await api(`/numuneler?tur=${encodeURIComponent(tur)}`);
     const musteriler = await api('/musteriler');
     if (!numuneler) return;
+    window._tumNumuneler = numuneler;
+    window._aktifNumuneTur2 = tur;
+    window._aktifNumuneBaslik2 = baslik;
+    window._aktifMusteriler = musteriler;
+
+    const bugun = new Date();
+    const bugunStr = bugun.toISOString().split('T')[0];
+    const ayBas = new Date(bugun.getFullYear(), bugun.getMonth(), 1).toISOString().split('T')[0];
+
     const sutunlar = tur === 'Taze Beton'
       ? ['ID','Tarih','Müşteri','YİBF','Belediye','Blok','Kat','M³','B.Sınıfı','Adet','Birim','KDV','KDVsiz','KDVli','Durum']
       : tur === 'Celik'
@@ -585,41 +594,34 @@ const sayfalar = {
 
     let html = `
       <div class="sayfa-baslik">${baslik} Numuneleri</div>
-      <div class="toolbar">
-        ${isAdmin() ? `<button class="btn btn-ana" onclick="numuneEkleModal('${tur}')">+ Yeni Numune</button>` : ''}
-        ${isAdmin() ? `<button class="btn btn-yesil btn-sm" onclick="durumDegistir('numune','Tahsil Edildi')">✓ Tahsil Edildi</button>` : ''}
-        ${isAdmin() ? `<button class="btn btn-gri btn-sm" onclick="durumDegistir('numune','Beklemede')">Beklemede</button>` : ''}
-        <span id="numune-toplam" style="margin-left:auto;font-weight:700;color:var(--ana)"></span>
+      <div class="kart" style="margin-bottom:12px">
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+          ${isAdmin() ? `<button class="btn btn-ana" onclick="numuneEkleModal('${tur}')" style="height:38px">+ Yeni Numune</button>` : ''}
+          ${isAdmin() ? `<button class="btn btn-yesil btn-sm" onclick="durumDegistir('numune','Tahsil Edildi')" style="height:38px">✓ Tahsil Edildi</button>` : ''}
+          ${isAdmin() ? `<button class="btn btn-gri btn-sm" onclick="durumDegistir('numune','Beklemede')" style="height:38px">Beklemede</button>` : ''}
+          <div style="width:1px;height:32px;background:var(--kenar)"></div>
+          <div>
+            <label style="font-size:11px;color:var(--ikincil);display:block;margin-bottom:3px">Başlangıç</label>
+            <input type="date" id="numune-bas" value="${ayBas}" style="padding:7px 10px;border:1px solid var(--kenar);border-radius:8px;font-size:13px">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--ikincil);display:block;margin-bottom:3px">Bitiş</label>
+            <input type="date" id="numune-bit" value="${bugunStr}" style="padding:7px 10px;border:1px solid var(--kenar);border-radius:8px;font-size:13px">
+          </div>
+          <button class="btn btn-ana btn-sm" onclick="numuneFiltrele()" style="height:38px">Filtrele</button>
+          <button class="btn btn-gri btn-sm" onclick="document.getElementById('numune-bas').value='';document.getElementById('numune-bit').value='';numuneFiltrele()" style="height:38px">Tümü</button>
+          <span id="numune-toplam" style="margin-left:auto;font-weight:700;color:var(--ana)"></span>
+        </div>
       </div>
       <div class="tablo-wrap">
         <table>
           <thead><tr>${sutunlar.map(s=>`<th>${s}</th>`).join('')}${isAdmin()?'<th>İşlem</th>':''}</tr></thead>
-          <tbody>`;
+          <tbody id="numune-tbody"></tbody>
+        </table>
+      </div>`;
 
-    let toplamKdvli = 0; let toplamAdet = 0;
-    for (const n of numuneler) {
-      toplamKdvli += n.toplam_kdvli || 0;
-      toplamAdet += n.adet || 0;
-      const stl = n.durum === 'Tahsil Edildi' ? 'tahsil' : 'beklem';
-      const caplar = n.caplar ? n.caplar.split(',').map(c=>`φ${c.trim()}`).join(', ') : '';
-      let satirHucreler = `<td>${n.id}</td><td>${n.tarih||''}</td><td>${n.musteri_adi||''}</td>
-        <td>${n.yibf||''}</td><td>${n.belediye||''}</td><td>${n.blok||''}</td><td>${n.kat||''}</td>`;
-      if (tur === 'Taze Beton') satirHucreler += `<td>${n.m3||''}</td><td>${n.beton_sinifi||''}</td>`;
-      if (tur === 'Celik') satirHucreler += `<td>${caplar}</td>`;
-      if (tur === 'Karot') satirHucreler += `<td>${n.is_adi||''}</td>`;
-      satirHucreler += `<td>${n.adet}</td><td>${para(n.birim_fiyat)}</td>
-        <td>%${n.kdv_oran||0}</td><td>${para(n.toplam)}</td><td>${para(n.toplam_kdvli)}</td>
-        <td><span class="badge ${n.durum==='Tahsil Edildi'?'badge-yesil':'badge-turuncu'}">${n.durum}</span></td>`;
-      html += `<tr class="${stl}" data-id="${n.id}">
-        <td><input type="checkbox" class="numune-cb" data-id="${n.id}"></td>
-        ${satirHucreler}
-        ${isAdmin() ? `<td><button class="btn btn-kirmizi btn-sm" onclick="numuneSil(${n.id})">Sil</button></td>` : ''}
-      </tr>`.replace('<td><input','<td style="width:32px"><input');
-    }
-    html += `</tbody></table></div>`;
     document.getElementById('sayfa-icerik').innerHTML = html;
-    document.getElementById('numune-toplam').textContent =
-      `${toplamAdet} adet | KDVli: ${para(toplamKdvli)}`;
+    numuneFiltrele();
     window._musteriler = musteriler;
     window._aktifNumuneBaslik = baslik;
     window._aktifNumuneTur = tur;
@@ -1407,6 +1409,42 @@ function musteriTipFiltre(tip) {
 }
 
 // ── NUMUNE ────────────────────────────────────────────────────────────────────
+function numuneFiltrele() {
+  var numuneler = window._tumNumuneler || [];
+  var bas = document.getElementById('numune-bas') ? document.getElementById('numune-bas').value : '';
+  var bit = document.getElementById('numune-bit') ? document.getElementById('numune-bit').value : '';
+  var tur = window._aktifNumuneTur2 || '';
+
+  if (bas && bit) {
+    numuneler = numuneler.filter(function(n) { return n.tarih >= bas && n.tarih <= bit; });
+  }
+
+  var toplamKdvli = 0, toplamAdet = 0;
+  var isAdm = isAdmin();
+  var rows = numuneler.map(function(n) {
+    toplamKdvli += n.toplam_kdvli || 0;
+    toplamAdet += n.adet || 0;
+    var stl = n.durum === 'Tahsil Edildi' ? 'tahsil' : 'beklem';
+    var caplar = n.caplar ? n.caplar.split(',').map(function(c){return 'φ'+c.trim();}).join(', ') : '';
+    var h = '<td style="width:32px"><input type="checkbox" class="numune-cb" data-id="'+n.id+'"></td>' +
+      '<td>'+n.id+'</td><td>'+n.tarih+'</td><td>'+(n.musteri_adi||'')+'</td>' +
+      '<td>'+(n.yibf||'')+'</td><td>'+(n.belediye||'')+'</td><td>'+(n.blok||'')+'</td><td>'+(n.kat||'')+'</td>';
+    if (tur === 'Taze Beton') h += '<td>'+(n.m3||'')+'</td><td>'+(n.beton_sinifi||'')+'</td>';
+    if (tur === 'Celik') h += '<td>'+caplar+'</td>';
+    if (tur === 'Karot') h += '<td>'+(n.is_adi||'')+'</td>';
+    h += '<td>'+n.adet+'</td><td>'+para(n.birim_fiyat)+'</td>' +
+      '<td>%'+(n.kdv_oran||0)+'</td><td>'+para(n.toplam)+'</td><td>'+para(n.toplam_kdvli)+'</td>' +
+      '<td><span class="badge '+(n.durum==='Tahsil Edildi'?'badge-yesil':'badge-turuncu')+'">'+n.durum+'</span></td>';
+    if (isAdm) h += '<td><button class="btn btn-kirmizi btn-sm" onclick="numuneSil('+n.id+')">Sil</button></td>';
+    return '<tr class="'+stl+'" data-id="'+n.id+'">'+h+'</tr>';
+  }).join('');
+
+  var tbody = document.getElementById('numune-tbody');
+  if (tbody) tbody.innerHTML = rows;
+  var topEl = document.getElementById('numune-toplam');
+  if (topEl) topEl.textContent = toplamAdet + ' adet | KDVli: ' + para(toplamKdvli);
+}
+
 function numuneEkleModal(tur) {
   const musteriler = (window._musteriler || []).filter(m =>
     tur === 'Karot' ? m.tip === 'Beton Firmasi' : m.tip === 'Muteahhit'
