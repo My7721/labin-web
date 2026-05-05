@@ -1154,6 +1154,25 @@ def gider_ozet(bas: Optional[str] = None, bit: Optional[str] = None, token=Depen
 
     conn.close()
     return {"toplam": toplam, "kategoriler": kategoriler, "araclar": araclar}
+
+# ── YEDEKLEME ─────────────────────────────────────────────────────────────────
+@app.get("/yedek-al")
+def yedek_al(token=Depends(admin_kontrol)):
+    """Tüm verileri JSON olarak indir"""
+    conn = get_db(); c = conn.cursor()
+    yedek = {}
+    tablolar = ["musteriler","musteri_fiyatlar","numuneler","gelirler","giderler",
+                "personeller","cek_senetler","beton_programi","araclar","notlar","kullanicilar"]
+    for t in tablolar:
+        try:
+            c.execute(f"SELECT * FROM {t}")
+            yedek[t] = fetchall_dict(c)
+        except: yedek[t] = []
+    conn.close()
+    yedek["yedek_tarihi"] = datetime.now().isoformat()
+    yedek["versiyon"] = "1.0"
+    return yedek
+
 # Ana sayfada index.html'i gonder
 @app.get("/", response_class=HTMLResponse)
 async def ana_sayfa():
