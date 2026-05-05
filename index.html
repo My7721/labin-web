@@ -889,13 +889,6 @@ const sayfalar = {
           <p style="font-size:13px;color:var(--ikincil);margin:8px 0 12px">Tüm verilerinizi JSON dosyası olarak bilgisayarınıza indirin. <strong>Haftada bir almanızı öneririm.</strong></p>
           <button class="btn btn-yesil btn-sm" onclick="yedekIndir()">💾 Yedek İndir</button>
         </div>
-        <div class="kart" style="border:2px solid var(--turuncu);background:#fff7ed">
-          <div class="k-baslik">📥 Yedekten Geri Yükle</div>
-          <p style="font-size:13px;color:var(--ikincil);margin:8px 0 12px">Daha önce indirdiğiniz JSON yedek dosyasını yükleyerek verileri geri getirin. <strong>Mevcut verilerin üzerine eklenir.</strong></p>
-          <input type="file" id="yedek-dosya" accept=".json" style="margin-bottom:8px;font-size:13px">
-          <br>
-          <button class="btn btn-turuncu btn-sm" onclick="yedekYukle()">📥 Yedeği Geri Yükle</button>
-        </div>
         <div class="kart">
           <div class="k-baslik">📋 Müşteri Borç Ekstresi</div>
           <p style="font-size:13px;color:var(--ikincil);margin:8px 0 12px">Müşteriye gönderilecek borç/alacak özeti</p>
@@ -905,6 +898,13 @@ const sayfalar = {
             </select>
             <button class="btn btn-ana btn-sm" onclick="borcEkstrePDF()">📄 Ekstre PDF</button>
           </div>
+        </div>
+        <div class="kart" style="border:2px solid var(--turuncu);background:#fff7ed">
+          <div class="k-baslik">📥 Yedekten Geri Yükle</div>
+          <p style="font-size:13px;color:var(--ikincil);margin:8px 0 12px">Daha önce indirdiğiniz JSON yedek dosyasını yükleyerek verileri geri getirin. <strong>Mevcut verilerin üzerine eklenir.</strong></p>
+          <input type="file" id="yedek-dosya" accept=".json" style="margin-bottom:8px;font-size:13px">
+          <br>
+          <button class="btn btn-turuncu btn-sm" onclick="yedekYukle()">📥 Yedeği Geri Yükle</button>
         </div>
       </div>`;
     // Musteri listesini doldur
