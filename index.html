@@ -884,6 +884,11 @@ const sayfalar = {
             <button class="btn btn-ana btn-sm" onclick="aylikRaporPDF()">📄 PDF İndir</button>
           </div>
         </div>
+        <div class="kart" style="border:2px solid var(--yesil);background:#f0fdf4">
+          <div class="k-baslik">💾 Tüm Verileri Yedekle</div>
+          <p style="font-size:13px;color:var(--ikincil);margin:8px 0 12px">Tüm verilerinizi JSON dosyası olarak bilgisayarınıza indirin. <strong>Haftada bir almanızı öneririm.</strong></p>
+          <button class="btn btn-yesil btn-sm" onclick="yedekIndir()">💾 Yedek İndir</button>
+        </div>
         <div class="kart">
           <div class="k-baslik">📋 Müşteri Borç Ekstresi</div>
           <p style="font-size:13px;color:var(--ikincil);margin:8px 0 12px">Müşteriye gönderilecek borç/alacak özeti</p>
@@ -2323,6 +2328,18 @@ function musteriPDF() {
 }
 
 // ── RAPOR FONKSİYONLARI ───────────────────────────────────────────────────────
+async function yedekIndir() {
+  const r = await fetch(API + '/yedek-al', { headers: {'Authorization': 'Bearer '+token} });
+  if (!r.ok) { alert('Yedek alınamadı!'); return; }
+  const veri = await r.json();
+  const blob = new Blob([JSON.stringify(veri, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'labin_yedek_' + new Date().toISOString().split('T')[0] + '.json';
+  a.click();
+  alert('Yedek indirildi! Bu dosyayı güvenli bir yerde saklayın.');
+}
+
 async function aylikRaporPDF() {
   const yil = document.getElementById('rapor-yil')?.value || new Date().getFullYear();
   const data = await api('/aylik?yil=' + yil);
