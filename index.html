@@ -1141,7 +1141,13 @@ async function ozetYenile() {
   // Dashboard grafikleri
   setTimeout(async function() {
     try {
-      var giderler = await api('/giderler');
+      var filtreBas = document.getElementById('ozet-bas') ? document.getElementById('ozet-bas').value : '';
+      var filtreBit = document.getElementById('ozet-bit') ? document.getElementById('ozet-bit').value : '';
+      var tumGiderler = await api('/giderler');
+      var giderler = tumGiderler;
+      if (giderler && filtreBas && filtreBit) {
+        giderler = giderler.filter(function(g) { return g.tarih >= filtreBas && g.tarih <= filtreBit; });
+      }
       if (giderler && giderler.length) {
         var katToplam = {};
         giderler.forEach(function(g) { katToplam[g.kategori] = (katToplam[g.kategori]||0) + (g.tutar||0); });
